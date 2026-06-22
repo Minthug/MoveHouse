@@ -11,6 +11,7 @@ import {
   filterDongByGuCode,
   getDongColor,
 } from '../data/seoulDistricts'
+import { SUBWAY_LINES } from '../data/seoulSubway'
 import type { Destination, CandidateLocation, AppMode } from '../types'
 
 const CANDIDATE_COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ec4899']
@@ -30,6 +31,7 @@ interface UseLeafletMapProps {
   destination: Destination | null
   candidates: CandidateLocation[]
   onDistrictClick: (name: string, lat: number, lng: number) => void
+  showSubway: boolean
 }
 
 export function useLeafletMap({
@@ -38,6 +40,7 @@ export function useLeafletMap({
   destination,
   candidates,
   onDistrictClick,
+  showSubway,
 }: UseLeafletMapProps) {
   const mapRef = useRef<L.Map | null>(null)
   const geoLayerRef = useRef<L.GeoJSON | null>(null)
@@ -45,6 +48,7 @@ export function useLeafletMap({
   const markersRef = useRef<L.Marker[]>([])
   const guBoundsRef = useRef<Map<string, L.LatLngBounds>>(new Map())
   const guCodeMapRef = useRef<Map<string, string>>(new Map())
+  const subwayLayerGroupRef = useRef<L.LayerGroup | null>(null)
   const seoulBoundsRef = useRef<L.LatLngBounds | null>(null)
 
   // Refs for values used inside stable closures
@@ -273,6 +277,55 @@ export function useLeafletMap({
       markersRef.current.push(m)
     })
   }, [candidates])
+
+  // ── Subway overlay ────────────────────────────────────────────────────
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map) return
+
+    if (!showSubway) {
+      subwayLayerGroupRef.current?.remove()
+      subwayLayerGroupRef.current = null
+      return
+    }
+
+    if (subwayLayerGroupRef.current) return // already shown
+
+    const group = L.layerGroup()
+
+    for (const line of SUBWAY_LINES) {
+      const latlngs = line.stations.map((s) => [s.lat, s.lng] as L.LatLngTuple)
+
+      // Route polyline
+      L.polyline(latlngs, {
+        color: line.color,
+        weight: 3,
+        opacity: 0.85,
+        interactive: false,
+      }).addTo(group)
+
+      // Station markers
+      for (const station of line.stations) {
+        L.circleMarker([station.lat, station.lng], {
+          radius: 4,
+          color: line.color,
+          fillColor: '#fff',
+          fillOpacity: 1,
+          weight: 2,
+          interactive: true,
+        })
+          .bindTooltip(`<b>${station.name}</b><br/><span style="color:${line.color}">${line.name}</span>`, {
+            direction: 'top',
+            offset: [0, -6],
+            className: 'subway-tooltip',
+          })
+          .addTo(group)
+      }
+    }
+
+    group.addTo(map)
+    subwayLayerGroupRef.current = group
+  }, [showSubway]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return {
     zoomedGu,

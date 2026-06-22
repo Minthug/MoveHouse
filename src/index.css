@@ -85,6 +85,17 @@ body {
   display: none !important;
 }
 
+/* 지하철 역 툴팁 */
+.subway-tooltip {
+  font-size: 12px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Noto Sans KR', sans-serif;
+  border-radius: 8px !important;
+  padding: 4px 8px !important;
+  border: none !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important;
+  white-space: nowrap;
+}
+
 /* Hide default Leaflet attribution for cleaner look */
 .leaflet-control-attribution {
   font-size: 9px;
