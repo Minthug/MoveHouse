@@ -1,0 +1,102 @@
+@import "tailwindcss";
+@import "leaflet/dist/leaflet.css";
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Noto Sans KR', sans-serif;
+}
+
+#root {
+  width: 100%;
+  height: 100vh;
+}
+
+.destination-marker {
+  width: 36px;
+  height: 36px;
+  background: #ef4444;
+  border: 3px solid #fff;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 16px;
+  font-weight: bold;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  cursor: pointer;
+}
+
+.candidate-marker {
+  width: 36px;
+  height: 36px;
+  background: #3b82f6;
+  border: 3px solid #fff;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 14px;
+  font-weight: bold;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  cursor: pointer;
+}
+
+/* Seoul district label (Leaflet permanent tooltip) */
+.district-label {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  color: #1e4a72;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: -apple-system, BlinkMacSystemFont, 'Noto Sans KR', sans-serif;
+  text-align: center;
+  white-space: nowrap;
+  pointer-events: none;
+  text-shadow: 0 0 3px rgba(255,255,255,0.9), 0 0 6px rgba(255,255,255,0.6);
+}
+.district-label::before {
+  display: none !important;
+}
+
+/* 동 label — 구보다 작고 살짝 연하게 */
+.dong-label {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  color: #2a5a84;
+  font-size: 9.5px;
+  font-weight: 500;
+  font-family: -apple-system, BlinkMacSystemFont, 'Noto Sans KR', sans-serif;
+  text-align: center;
+  white-space: nowrap;
+  pointer-events: none;
+  text-shadow: 0 0 3px rgba(255,255,255,0.95), 0 0 6px rgba(255,255,255,0.7);
+}
+.dong-label::before {
+  display: none !important;
+}
+
+/* Hide default Leaflet attribution for cleaner look */
+.leaflet-control-attribution {
+  font-size: 9px;
+  opacity: 0.6;
+}
+
+/* White background outside Seoul polygons */
+.leaflet-container {
+  background: #f5f8fb !important;
+}
+
+/* Zoom controls position */
+.leaflet-control-zoom {
+  margin-top: 48px !important;
+}
