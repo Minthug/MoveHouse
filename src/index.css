@@ -85,15 +85,40 @@ body {
   display: none !important;
 }
 
-/* 지하철 역 툴팁 */
-.subway-tooltip {
-  font-size: 12px;
-  font-family: -apple-system, BlinkMacSystemFont, 'Noto Sans KR', sans-serif;
-  border-radius: 8px !important;
-  padding: 4px 8px !important;
-  border: none !important;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important;
+/* 지하철 역 마커 */
+.subway-pin {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  pointer-events: none;
   white-space: nowrap;
+}
+
+.subway-pin-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.subway-pin-name {
+  display: none;  /* 기본: 숨김 */
+  font-size: 10px;
+  font-weight: 700;
+  color: #111;
+  font-family: -apple-system, BlinkMacSystemFont, 'Noto Sans KR', sans-serif;
+  line-height: 1;
+  /* 어두운 배경에서도 읽히도록 흰색 테두리 */
+  text-shadow:
+    1px  1px 0 #fff, -1px -1px 0 #fff,
+    1px -1px 0 #fff, -1px  1px 0 #fff,
+    0    1px 0 #fff,  0   -1px 0 #fff,
+    1px  0   0 #fff, -1px  0   0 #fff;
+}
+
+/* zoom 13 이상이면 역 이름 표시 */
+.subway-zoom-labels .subway-pin-name {
+  display: inline;
 }
 
 /* Hide default Leaflet attribution for cleaner look */

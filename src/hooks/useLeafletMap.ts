@@ -308,7 +308,6 @@ export function useLeafletMap({
     for (const line of SUBWAY_LINES) {
       const latlngs = line.stations.map((s) => [s.lat, s.lng] as L.LatLngTuple)
 
-      // Route polyline — subwayPane에 고정
       L.polyline(latlngs, {
         color: line.color,
         weight: 3.5,
@@ -317,27 +316,39 @@ export function useLeafletMap({
         pane: 'subwayPane',
       }).addTo(group)
 
-      // Station markers — subwayMarkerPane에 고정
       for (const station of line.stations) {
-        L.circleMarker([station.lat, station.lng], {
-          radius: 4,
-          color: line.color,
-          fillColor: '#fff',
-          fillOpacity: 1,
-          weight: 2.5,
-          interactive: true,
-          pane: 'subwayMarkerPane',
+        const icon = L.divIcon({
+          html: `<div class="subway-pin">
+            <div class="subway-pin-dot" style="background:${line.color};box-shadow:0 0 0 2px white,0 1px 4px rgba(0,0,0,.4)"></div>
+            <span class="subway-pin-name">${station.name}</span>
+          </div>`,
+          className: '',
+          iconSize: [0, 0],
+          iconAnchor: [5, 5],
         })
-          .bindTooltip(
-            `<b>${station.name}</b><br/><span style="color:${line.color}">${line.name}</span>`,
-            { direction: 'top', offset: [0, -6], className: 'subway-tooltip' },
-          )
-          .addTo(group)
+
+        L.marker([station.lat, station.lng], {
+          icon,
+          interactive: false,
+          pane: 'subwayMarkerPane',
+        }).addTo(group)
       }
     }
 
     group.addTo(map)
     subwayLayerGroupRef.current = group
+
+    // zoom level에 따라 역 이름 표시 토글 (CSS 클래스로 처리)
+    const container = map.getContainer()
+    const updateZoomClass = () => {
+      if (map.getZoom() >= 12) {
+        container.classList.add('subway-zoom-labels')
+      } else {
+        container.classList.remove('subway-zoom-labels')
+      }
+    }
+    updateZoomClass()
+    map.on('zoomend', updateZoomClass)
   }, [showSubway]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return {
