@@ -76,6 +76,18 @@ export function useLeafletMap({
       zoomControl: true,
       attributionControl: true,
     })
+
+    // 지하철 레이어 전용 pane — overlayPane(400)보다 높게 설정해 항상 최상단 유지
+    map.createPane('subwayPane')
+    const subwayPane = map.getPane('subwayPane')!
+    subwayPane.style.zIndex = '450'
+    subwayPane.style.pointerEvents = 'none'  // 지도 클릭 방해 안 하도록
+
+    // 역 마커 전용 pane (툴팁 인터랙션을 위해 pointerEvents 활성화)
+    map.createPane('subwayMarkerPane')
+    const subwayMarkerPane = map.getPane('subwayMarkerPane')!
+    subwayMarkerPane.style.zIndex = '460'
+
     mapRef.current = map
 
     fetchSeoulGeoJSON()
@@ -296,29 +308,30 @@ export function useLeafletMap({
     for (const line of SUBWAY_LINES) {
       const latlngs = line.stations.map((s) => [s.lat, s.lng] as L.LatLngTuple)
 
-      // Route polyline
+      // Route polyline — subwayPane에 고정
       L.polyline(latlngs, {
         color: line.color,
-        weight: 3,
-        opacity: 0.85,
+        weight: 3.5,
+        opacity: 0.9,
         interactive: false,
+        pane: 'subwayPane',
       }).addTo(group)
 
-      // Station markers
+      // Station markers — subwayMarkerPane에 고정
       for (const station of line.stations) {
         L.circleMarker([station.lat, station.lng], {
           radius: 4,
           color: line.color,
           fillColor: '#fff',
           fillOpacity: 1,
-          weight: 2,
+          weight: 2.5,
           interactive: true,
+          pane: 'subwayMarkerPane',
         })
-          .bindTooltip(`<b>${station.name}</b><br/><span style="color:${line.color}">${line.name}</span>`, {
-            direction: 'top',
-            offset: [0, -6],
-            className: 'subway-tooltip',
-          })
+          .bindTooltip(
+            `<b>${station.name}</b><br/><span style="color:${line.color}">${line.name}</span>`,
+            { direction: 'top', offset: [0, -6], className: 'subway-tooltip' },
+          )
           .addTo(group)
       }
     }
