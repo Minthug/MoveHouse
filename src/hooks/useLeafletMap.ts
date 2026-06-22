@@ -12,6 +12,7 @@ import {
   getDongColor,
 } from '../data/seoulDistricts'
 import { SUBWAY_LINES } from '../data/seoulSubway'
+import { HAN_RIVER_OUTER, YEOUIDO_HOLE } from '../data/hanRiver'
 import type { Destination, CandidateLocation, AppMode } from '../types'
 
 const CANDIDATE_COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ec4899']
@@ -76,6 +77,23 @@ export function useLeafletMap({
       zoomControl: true,
       attributionControl: true,
     })
+
+    // 한강 pane — 구 레이어(overlayPane 400)보다 위, 지하철보다 아래
+    map.createPane('hanRiverPane')
+    map.getPane('hanRiverPane')!.style.zIndex = '420'
+    map.getPane('hanRiverPane')!.style.pointerEvents = 'none'
+
+    // 한강 폴리곤
+    L.polygon([HAN_RIVER_OUTER, YEOUIDO_HOLE], {
+      pane: 'hanRiverPane',
+      fillColor: '#5b9fd4',
+      fillOpacity: 0.65,
+      color: '#3d84bb',
+      weight: 1.5,
+      interactive: false,
+    })
+      .bindTooltip('한강', { permanent: false, className: 'river-tooltip' })
+      .addTo(map)
 
     // 지하철 레이어 전용 pane — overlayPane(400)보다 높게 설정해 항상 최상단 유지
     map.createPane('subwayPane')

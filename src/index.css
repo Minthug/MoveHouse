@@ -85,6 +85,20 @@ body {
   display: none !important;
 }
 
+/* 한강 툴팁 */
+.river-tooltip {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  color: #1e5a8a;
+  font-size: 13px;
+  font-weight: 700;
+  font-family: -apple-system, BlinkMacSystemFont, 'Noto Sans KR', sans-serif;
+  text-shadow: 0 0 4px rgba(255,255,255,0.8);
+  pointer-events: none;
+}
+.river-tooltip::before { display: none !important; }
+
 /* 지하철 역 마커 */
 .subway-pin {
   display: flex;
