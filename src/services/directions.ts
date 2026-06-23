@@ -15,46 +15,44 @@ function haversineDistance(a: Coordinate, b: Coordinate): number {
   return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x))
 }
 
-function calcTransitFare(distanceM: number): number {
-  const km = distanceM / 1000
-  if (km <= 10) return 1400
-  if (km <= 40) return 1400 + Math.ceil((km - 10) / 5) * 100
-  return 1400 + 600 + Math.ceil((km - 40) / 10) * 100
-}
-
-interface NaverDirectionsResponse {
-  code: number
-  message: string
-  route?: {
-    traoptimal?: Array<{
-      summary: {
-        duration: number  // ms
-        distance: number  // meters
-        taxiFare: number
-        tollFare: number
-      }
-    }>
+interface OdsayPath {
+  info: {
+    totalTime: number   // minutes
+    payment: number     // KRW
+    busTransitCount: number
+    subwayTransitCount: number
   }
 }
 
-async function fetchDrivingRoute(
+interface OdsayResponse {
+  result?: {
+    path?: OdsayPath[]
+  }
+  error?: { msg: string }
+}
+
+async function fetchTransitRoute(
   origin: Coordinate,
   destination: Coordinate,
-): Promise<{ duration: number; distance: number } | null> {
+): Promise<{ duration: number; fare: number } | null> {
   try {
     const params = new URLSearchParams({
-      start: `${origin.lng},${origin.lat}`,
-      goal: `${destination.lng},${destination.lat}`,
-      option: 'traoptimal',
+      SX: String(origin.lng),
+      SY: String(origin.lat),
+      EX: String(destination.lng),
+      EY: String(destination.lat),
+      OPT: '1',          // 최소 시간
+      SearchType: '0',   // 도시 내
+      SearchPathType: '0', // 전체 (지하철+버스)
     })
-    const res = await fetch(`/api/directions?${params}`)
+    const res = await fetch(`/api/transit?${params}`)
     if (!res.ok) return null
-    const data: NaverDirectionsResponse = await res.json()
-    const summary = data.route?.traoptimal?.[0]?.summary
-    if (!summary) return null
+    const data: OdsayResponse = await res.json()
+    const best = data.result?.path?.[0]
+    if (!best) return null
     return {
-      duration: Math.round(summary.duration / 60000), // ms → minutes
-      distance: summary.distance,
+      duration: best.info.totalTime,
+      fare: best.info.payment,
     }
   } catch {
     return null
@@ -68,22 +66,13 @@ export async function getRoutes(
   const distanceM = haversineDistance(origin, destination)
   const walkDuration = Math.round(distanceM / 67) // 4km/h ≈ 67m/min
 
-  const driving = await fetchDrivingRoute(origin, destination)
+  const transit = await fetchTransitRoute(origin, destination)
 
-  const drivingResult: RouteResult | undefined = driving
+  const transitResult: RouteResult | undefined = transit
     ? {
-        duration: driving.duration,
-        fare: 0,
-        distance: driving.distance,
-      }
-    : undefined
-
-  // Transit approximation: driving * 1.4 (Seoul average)
-  const transitResult: RouteResult | undefined = driving
-    ? {
-        duration: Math.round(driving.duration * 1.4),
-        fare: calcTransitFare(driving.distance),
-        distance: driving.distance,
+        duration: transit.duration,
+        fare: transit.fare,
+        distance: distanceM,
       }
     : undefined
 
@@ -95,7 +84,6 @@ export async function getRoutes(
 
   return {
     transit: transitResult,
-    driving: drivingResult,
     walk: walkResult,
   }
 }
