@@ -6,10 +6,11 @@ interface Props {
   mode: AppMode
   destination: Destination | null
   candidates: CandidateLocation[]
+  selectedCandidateId: string | null
   onDistrictClick: (name: string, lat: number, lng: number) => void
 }
 
-export default function MapView({ mode, destination, candidates, onDistrictClick }: Props) {
+export default function MapView({ mode, destination, candidates, selectedCandidateId, onDistrictClick }: Props) {
   const mapContainerRef = useRef<HTMLDivElement>(null)
   const [showSubway, setShowSubway] = useState(false)
 
@@ -18,6 +19,7 @@ export default function MapView({ mode, destination, candidates, onDistrictClick
     mode,
     destination,
     candidates,
+    selectedCandidateId,
     onDistrictClick,
     showSubway,
   })

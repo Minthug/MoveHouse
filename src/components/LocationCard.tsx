@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { calcMonthlyFare } from '../services/directions'
 import type { CandidateLocation, RouteStep } from '../types'
 
@@ -88,23 +87,24 @@ function RouteSteps({ steps }: { steps: RouteStep[] }) {
 interface Props {
   candidate: CandidateLocation
   index: number
+  selected: boolean
+  onSelect: (id: string) => void
   onRemove: (id: string) => void
 }
 
-export default function LocationCard({ candidate, index, onRemove }: Props) {
+export default function LocationCard({ candidate, index, selected, onSelect, onRemove }: Props) {
   const color = CANDIDATE_COLORS[index % CANDIDATE_COLORS.length]
   const { transit, walk } = candidate.routes
   const monthlyFare = transit?.fare ? calcMonthlyFare(transit.fare) : null
-  const [expanded, setExpanded] = useState(false)
 
   const hasRoute = !candidate.loading && (transit || walk)
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-      {/* Header — 클릭으로 토글 */}
+    <div className={`bg-white border rounded-xl shadow-sm overflow-hidden transition-all ${selected ? 'border-blue-400 ring-2 ring-blue-100' : 'border-gray-200'}`}>
+      {/* Header — 클릭으로 지도에 경로 표시 */}
       <div
         className={`flex items-center gap-3 p-4 ${hasRoute ? 'cursor-pointer hover:bg-gray-50 transition-colors' : ''}`}
-        onClick={() => hasRoute && setExpanded((v) => !v)}
+        onClick={() => hasRoute && onSelect(candidate.id)}
       >
         <div
           className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0"
@@ -123,7 +123,7 @@ export default function LocationCard({ candidate, index, onRemove }: Props) {
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {hasRoute && (
-            <span className="text-gray-300 text-xs">{expanded ? '▲' : '▼'}</span>
+            <span className="text-xs text-blue-400">{selected ? '지도 표시 중' : '클릭해서 경로 보기'}</span>
           )}
           <button
             onClick={(e) => { e.stopPropagation(); onRemove(candidate.id) }}
@@ -147,8 +147,8 @@ export default function LocationCard({ candidate, index, onRemove }: Props) {
         <p className="text-xs text-red-400 px-4 pb-4">{candidate.error}</p>
       )}
 
-      {/* 상세 경로 — 펼쳤을 때만 */}
-      {expanded && hasRoute && (
+      {/* 상세 경로 — 선택됐을 때만 */}
+      {selected && hasRoute && (
         <div className="px-4 pb-4 border-t border-gray-100 pt-3 space-y-3">
           <div className="grid grid-cols-2 gap-2">
             <div className="bg-blue-50 rounded-lg p-2 text-center">

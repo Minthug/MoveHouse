@@ -10,6 +10,8 @@ interface Props {
   onModeChange: (mode: AppMode) => void
   destination: Destination | null
   candidates: CandidateLocation[]
+  selectedCandidateId: string | null
+  onSelectCandidate: (id: string) => void
   onDestinationSelect: (lat: number, lng: number, address: string) => void
   onCandidateSelect: (lat: number, lng: number, address: string) => void
   onRemoveCandidate: (id: string) => void
@@ -20,6 +22,8 @@ export default function ComparePanel({
   onModeChange,
   destination,
   candidates,
+  selectedCandidateId,
+  onSelectCandidate,
   onDestinationSelect,
   onCandidateSelect,
   onRemoveCandidate,
@@ -93,6 +97,8 @@ export default function ComparePanel({
             key={c.id}
             candidate={c}
             index={i}
+            selected={selectedCandidateId === c.id}
+            onSelect={onSelectCandidate}
             onRemove={onRemoveCandidate}
           />
         ))}

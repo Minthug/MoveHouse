@@ -14,6 +14,7 @@ export default function App() {
   const [mode, setMode] = useState<AppMode>('set-destination')
   const [destination, setDestination] = useState<Destination | null>(null)
   const [candidates, setCandidates] = useState<CandidateLocation[]>([])
+  const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null)
   const { fetchRoutes } = useDirections()
 
   function addCandidate(lat: number, lng: number, name: string, dest: Destination) {
@@ -76,6 +77,7 @@ export default function App() {
           mode={mode}
           destination={destination}
           candidates={candidates}
+          selectedCandidateId={selectedCandidateId}
           onDistrictClick={handleDistrictClick}
         />
       </div>
@@ -85,6 +87,8 @@ export default function App() {
           onModeChange={setMode}
           destination={destination}
           candidates={candidates}
+          selectedCandidateId={selectedCandidateId}
+          onSelectCandidate={(id) => setSelectedCandidateId((prev) => prev === id ? null : id)}
           onDestinationSelect={handleDestinationSelect}
           onCandidateSelect={handleCandidateSelect}
           onRemoveCandidate={handleRemoveCandidate}

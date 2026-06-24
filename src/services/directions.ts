@@ -15,12 +15,18 @@ function haversineDistance(a: Coordinate, b: Coordinate): number {
   return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x))
 }
 
+interface OdsayStation {
+  x: string  // lng
+  y: string  // lat
+}
+
 interface OdsaySubPath {
-  trafficType: 1 | 2 | 3  // 1=지하철 2=버스 3=도보
+  trafficType: 1 | 2 | 3
   sectionTime: number
   startName?: string
   endName?: string
-  lane?: Array<{ name?: string; busNo?: string }>
+  lane?: Array<{ name?: string; busNo?: string; subwayCode?: number }>
+  passStopList?: { stations: OdsayStation[] }
 }
 
 interface OdsayPath {
@@ -38,15 +44,29 @@ interface OdsayResponse {
   error?: unknown
 }
 
+const SUBWAY_COLORS: Record<number, string> = {
+  1: '#0052A4', 2: '#00A84D', 3: '#EF7C1C', 4: '#00A5DE',
+  5: '#996CAC', 6: '#CD7C2F', 7: '#747F00', 8: '#E6186C',
+  9: '#BDB092', 100: '#D31145', 101: '#0090D2',
+}
+
 function parseSteps(subPaths: OdsaySubPath[]): RouteStep[] {
   return subPaths.map((sp) => {
+    const stations = sp.passStopList?.stations ?? []
+    const coords: [number, number][] = stations
+      .filter((s) => s.x && s.y)
+      .map((s) => [parseFloat(s.y), parseFloat(s.x)])
+
     if (sp.trafficType === 1) {
+      const code = sp.lane?.[0]?.subwayCode
       return {
         type: 'subway' as const,
         name: sp.lane?.[0]?.name,
         from: sp.startName,
         to: sp.endName,
         duration: sp.sectionTime,
+        coords,
+        color: code ? (SUBWAY_COLORS[code] ?? '#6b7280') : '#6b7280',
       }
     }
     if (sp.trafficType === 2) {
@@ -56,6 +76,8 @@ function parseSteps(subPaths: OdsaySubPath[]): RouteStep[] {
         from: sp.startName,
         to: sp.endName,
         duration: sp.sectionTime,
+        coords,
+        color: '#22c55e',
       }
     }
     return { type: 'walk' as const, duration: sp.sectionTime }

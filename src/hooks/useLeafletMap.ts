@@ -31,6 +31,7 @@ interface UseLeafletMapProps {
   mode: AppMode
   destination: Destination | null
   candidates: CandidateLocation[]
+  selectedCandidateId: string | null
   onDistrictClick: (name: string, lat: number, lng: number) => void
   showSubway: boolean
 }
@@ -40,6 +41,7 @@ export function useLeafletMap({
   mode,
   destination,
   candidates,
+  selectedCandidateId,
   onDistrictClick,
   showSubway,
 }: UseLeafletMapProps) {
@@ -52,6 +54,7 @@ export function useLeafletMap({
   const subwayLayerGroupRef = useRef<L.LayerGroup | null>(null)
   const seoulBoundsRef = useRef<L.LatLngBounds | null>(null)
   const destMarkerRef = useRef<L.Marker | null>(null)
+  const routeLayerRef = useRef<L.LayerGroup | null>(null)
 
   // Refs for values used inside stable closures
   const destRef = useRef(destination)
@@ -333,6 +336,41 @@ export function useLeafletMap({
       markersRef.current.push(m)
     })
   }, [candidates])
+
+  // ── Selected candidate route ──────────────────────────────────────────
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map) return
+
+    routeLayerRef.current?.remove()
+    routeLayerRef.current = null
+
+    if (!selectedCandidateId) return
+
+    const candidate = candidates.find((c) => c.id === selectedCandidateId)
+    const steps = candidate?.routes?.transit?.steps
+    if (!steps) return
+
+    const group = L.layerGroup()
+
+    for (const step of steps) {
+      if (!step.coords || step.coords.length < 2) continue
+      L.polyline(step.coords, {
+        color: step.color ?? '#6b7280',
+        weight: 5,
+        opacity: 0.85,
+      }).addTo(group)
+    }
+
+    group.addTo(map)
+    routeLayerRef.current = group
+
+    // 경로 전체가 보이도록 bounds 맞춤
+    const allCoords = steps.flatMap((s) => s.coords ?? [])
+    if (allCoords.length > 1) {
+      map.fitBounds(L.latLngBounds(allCoords), { padding: [40, 40] })
+    }
+  }, [selectedCandidateId, candidates])
 
   // ── Subway overlay ────────────────────────────────────────────────────
   useEffect(() => {
