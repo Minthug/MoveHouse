@@ -355,11 +355,20 @@ export function useLeafletMap({
 
     for (const step of steps) {
       if (!step.coords || step.coords.length < 2) continue
-      L.polyline(step.coords, {
-        color: step.color ?? '#6b7280',
-        weight: 5,
-        opacity: 0.85,
-      }).addTo(group)
+      if (step.type === 'walk') {
+        L.polyline(step.coords, {
+          color: '#9ca3af',
+          weight: 2,
+          opacity: 0.7,
+          dashArray: '5, 6',
+        }).addTo(group)
+      } else {
+        L.polyline(step.coords, {
+          color: step.color ?? '#6b7280',
+          weight: 5,
+          opacity: 0.85,
+        }).addTo(group)
+      }
     }
 
     group.addTo(map)

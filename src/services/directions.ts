@@ -51,7 +51,7 @@ const SUBWAY_COLORS: Record<number, string> = {
 }
 
 function parseSteps(subPaths: OdsaySubPath[]): RouteStep[] {
-  return subPaths.map((sp) => {
+  const steps: RouteStep[] = subPaths.map((sp) => {
     const stations = sp.passStopList?.stations ?? []
     const coords: [number, number][] = stations
       .filter((s) => s.x && s.y)
@@ -82,6 +82,18 @@ function parseSteps(subPaths: OdsaySubPath[]): RouteStep[] {
     }
     return { type: 'walk' as const, duration: sp.sectionTime }
   })
+
+  // 도보 구간에 좌표 채우기: 앞 구간 끝점 → 뒷 구간 시작점 직선
+  for (let i = 0; i < steps.length; i++) {
+    if (steps[i].type !== 'walk') continue
+    const prev = steps.slice(0, i).reverse().find((s) => s.coords?.length)
+    const next = steps.slice(i + 1).find((s) => s.coords?.length)
+    const from = prev?.coords?.at(-1)
+    const to = next?.coords?.[0]
+    if (from && to) steps[i].coords = [from, to]
+  }
+
+  return steps
 }
 
 async function fetchTransitRoute(
