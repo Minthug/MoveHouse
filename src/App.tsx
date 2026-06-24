@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import MapView from './components/MapView'
 import ComparePanel from './components/ComparePanel'
 import { useDirections } from './hooks/useDirections'
@@ -10,12 +10,56 @@ function makeId() {
   return Math.random().toString(36).slice(2, 9)
 }
 
+function readLocal<T>(key: string, fallback: T): T {
+  try {
+    const v = localStorage.getItem(key)
+    return v ? (JSON.parse(v) as T) : fallback
+  } catch {
+    return fallback
+  }
+}
+
+function writeLocal(key: string, value: unknown) {
+  try { localStorage.setItem(key, JSON.stringify(value)) } catch {}
+}
+
 export default function App() {
   const [mode, setMode] = useState<AppMode>('set-destination')
-  const [destination, setDestination] = useState<Destination | null>(null)
-  const [candidates, setCandidates] = useState<CandidateLocation[]>([])
+  const [destination, setDestination] = useState<Destination | null>(
+    () => readLocal('commute-destination', null),
+  )
+  const [candidates, setCandidates] = useState<CandidateLocation[]>(
+    () => readLocal<CandidateLocation[]>('commute-candidates', []).map((c) => ({
+      ...c,
+      loading: !c.routes.transit && !c.error,
+    })),
+  )
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null)
+  const didRestoreRef = useRef(false)
   const { fetchRoutes } = useDirections()
+
+  // localStorage 동기화
+  useEffect(() => { writeLocal('commute-destination', destination) }, [destination])
+  useEffect(() => {
+    writeLocal('commute-candidates', candidates.map((c) => ({ ...c, loading: false })))
+  }, [candidates])
+
+  // 복원 후 경로 없는 후보지 재조회
+  useEffect(() => {
+    if (didRestoreRef.current || !destination) return
+    didRestoreRef.current = true
+    const pending = candidates.filter((c) => !c.routes.transit && !c.error)
+    if (pending.length === 0) return
+    for (const c of pending) {
+      fetchRoutes({ lat: c.lat, lng: c.lng }, destination)
+        .then((routes) => setCandidates((prev) =>
+          prev.map((p) => p.id === c.id ? { ...p, loading: false, routes } : p),
+        ))
+        .catch(() => setCandidates((prev) =>
+          prev.map((p) => p.id === c.id ? { ...p, loading: false, error: '경로를 가져오지 못했어요' } : p),
+        ))
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   function addCandidate(lat: number, lng: number, name: string, dest: Destination) {
     if (candidates.length >= 5) return
