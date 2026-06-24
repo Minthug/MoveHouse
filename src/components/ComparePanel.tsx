@@ -71,6 +71,7 @@ interface Props {
   onRemoveCandidate: (id: string) => void
   onReset: () => void
   activePlaceCategories: Set<PlaceCategory>
+  loadingCategory: PlaceCategory | null
   onToggleCategory: (category: PlaceCategory) => void
   nearbyPlaces: NearbyPlace[]
   customPlaces: NearbyPlace[]
@@ -90,6 +91,7 @@ export default function ComparePanel({
   onRemoveCandidate,
   onReset,
   activePlaceCategories,
+  loadingCategory,
   onToggleCategory,
   nearbyPlaces,
   customPlaces,
@@ -166,12 +168,17 @@ export default function ComparePanel({
                   <button
                     key={code}
                     onClick={() => onToggleCategory(code)}
-                    className={`flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-medium transition-all border shrink-0 ${
+                    disabled={loadingCategory !== null}
+                    className={`flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-medium transition-all border shrink-0 disabled:cursor-wait ${
                       active ? 'text-white border-transparent' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'
                     }`}
                     style={active ? { background: cfg.color } : {}}
                   >
-                    <span>{cfg.emoji}</span>
+                    {loadingCategory === code ? (
+                      <span className="inline-block w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <span>{cfg.emoji}</span>
+                    )}
                     <span>{cfg.label}</span>
                     {active && count > 0 && <span className="bg-white/30 rounded-full px-1">{count}</span>}
                   </button>

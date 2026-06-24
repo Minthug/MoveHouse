@@ -1,8 +1,8 @@
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import MapView from './components/MapView'
 import ComparePanel from './components/ComparePanel'
 import { useDirections } from './hooks/useDirections'
-import { fetchNearbyPlaces, searchPlacesByKeyword } from './services/places'
+import { fetchNearbyPlaces, searchPlacesByKeyword, clearOverpassCache } from './services/places'
 import type { PlaceCategory, NearbyPlace } from './services/places'
 import type { AppMode, CandidateLocation, Destination } from './types'
 
@@ -38,16 +38,23 @@ export default function App() {
   )
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null)
   const [activePlaceCategories, setActivePlaceCategories] = useState<Set<PlaceCategory>>(new Set())
+  const [loadingCategory, setLoadingCategory] = useState<PlaceCategory | null>(null)
   const [nearbyPlaces, setNearbyPlaces] = useState<NearbyPlace[]>([])
   const [customPlaces, setCustomPlaces] = useState<NearbyPlace[]>([])
   const didRestoreRef = useRef(false)
+
+  const allNearbyPlaces = useMemo(
+    () => [...nearbyPlaces, ...customPlaces],
+    [nearbyPlaces, customPlaces],
+  )
   const { fetchRoutes } = useDirections()
 
-  // 목적지 바뀌면 편의시설 초기화
+  // 목적지 바뀌면 편의시설 초기화 + 캐시 무효화
   useEffect(() => {
     setNearbyPlaces([])
     setCustomPlaces([])
     setActivePlaceCategories(new Set())
+    clearOverpassCache()
   }, [destination?.id])
 
   // 후보지 변경 시 활성 카테고리 자동 갱신
@@ -168,11 +175,13 @@ export default function App() {
     } else {
       next.add(category)
       setActivePlaceCategories(next)
+      setLoadingCategory(category)
       const locations = [
         { lat: destination.lat, lng: destination.lng, id: destination.id },
         ...candidates.map((c) => ({ lat: c.lat, lng: c.lng, id: c.id })),
       ]
       const places = await fetchNearbyPlaces(locations, category)
+      setLoadingCategory(null)
       setNearbyPlaces((prev) => [...prev.filter((p) => p.category !== category), ...places])
     }
   }
@@ -194,7 +203,7 @@ export default function App() {
           destination={destination}
           candidates={candidates}
           selectedCandidateId={selectedCandidateId}
-          nearbyPlaces={[...nearbyPlaces, ...customPlaces]}
+          nearbyPlaces={allNearbyPlaces}
           onDistrictClick={handleDistrictClick}
         />
       </div>
@@ -211,6 +220,7 @@ export default function App() {
           onRemoveCandidate={handleRemoveCandidate}
           onReset={handleReset}
           activePlaceCategories={activePlaceCategories}
+          loadingCategory={loadingCategory}
           onToggleCategory={handleToggleCategory}
           nearbyPlaces={nearbyPlaces}
           customPlaces={customPlaces}

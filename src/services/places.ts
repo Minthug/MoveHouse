@@ -33,6 +33,13 @@ const OVERPASS_TAGS: Record<PlaceCategory, string[]> = {
 
 const OVERPASS_URL = 'https://overpass-api.de/api/interpreter'
 
+// In-memory cache keyed by sorted location IDs + category
+const overpassCache = new Map<string, NearbyPlace[]>()
+
+function overpassCacheKey(locations: { id: string }[], category: PlaceCategory) {
+  return `${[...locations].map((l) => l.id).sort().join(',')}:${category}`
+}
+
 function haversine(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6371000
   const dLat = ((lat2 - lat1) * Math.PI) / 180
@@ -76,9 +83,12 @@ export async function fetchNearbyPlaces(
     locs = latOrLocations
     category = lngOrCategory as PlaceCategory
   } else {
-    locs = [{ lat: latOrLocations, lng: lngOrCategory as number, id: sourceId ?? 'dest' }]
+    locs = [{ lat: latOrLocations as number, lng: lngOrCategory as number, id: sourceId ?? 'dest' }]
     category = categoryArg!
   }
+
+  const cacheKey = overpassCacheKey(locs, category)
+  if (overpassCache.has(cacheKey)) return overpassCache.get(cacheKey)!
 
   const { radius } = PLACE_CATEGORIES[category]
   const tags = OVERPASS_TAGS[category]
@@ -127,10 +137,16 @@ export async function fetchNearbyPlaces(
       })
     }
 
-    return results.sort((a, b) => a.distance - b.distance).slice(0, 30)
+    const sorted = results.sort((a, b) => a.distance - b.distance).slice(0, 30)
+    overpassCache.set(cacheKey, sorted)
+    return sorted
   } catch {
     return []
   }
+}
+
+export function clearOverpassCache() {
+  overpassCache.clear()
 }
 
 // 키워드 검색: Naver Local Search → 목적지 근처 결과 필터
