@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { calcMonthlyFare } from '../services/directions'
 import type { CandidateLocation, RouteStep } from '../types'
 
@@ -94,11 +95,17 @@ export default function LocationCard({ candidate, index, onRemove }: Props) {
   const color = CANDIDATE_COLORS[index % CANDIDATE_COLORS.length]
   const { transit, walk } = candidate.routes
   const monthlyFare = transit?.fare ? calcMonthlyFare(transit.fare) : null
+  const [expanded, setExpanded] = useState(false)
+
+  const hasRoute = !candidate.loading && (transit || walk)
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
-      {/* Header */}
-      <div className="flex items-start gap-3 mb-3">
+    <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+      {/* Header — 클릭으로 토글 */}
+      <div
+        className={`flex items-center gap-3 p-4 ${hasRoute ? 'cursor-pointer hover:bg-gray-50 transition-colors' : ''}`}
+        onClick={() => hasRoute && setExpanded((v) => !v)}
+      >
         <div
           className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0"
           style={{ background: color }}
@@ -107,21 +114,29 @@ export default function LocationCard({ candidate, index, onRemove }: Props) {
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-gray-800 truncate">{candidate.name}</p>
-          {monthlyFare && (
-            <p className="text-xs text-gray-400 mt-0.5">월 교통비 약 {formatFare(monthlyFare)}</p>
+          {transit && !candidate.loading && (
+            <p className="text-xs text-gray-500 mt-0.5">
+              🚇 {formatDuration(transit.duration)} · {formatFare(transit.fare)}
+              {monthlyFare && <span className="text-gray-400"> · 월 {formatFare(monthlyFare)}</span>}
+            </p>
           )}
         </div>
-        <button
-          onClick={() => onRemove(candidate.id)}
-          className="text-gray-300 hover:text-gray-500 text-lg leading-none transition-colors"
-        >
-          ×
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          {hasRoute && (
+            <span className="text-gray-300 text-xs">{expanded ? '▲' : '▼'}</span>
+          )}
+          <button
+            onClick={(e) => { e.stopPropagation(); onRemove(candidate.id) }}
+            className="text-gray-300 hover:text-gray-500 text-lg leading-none transition-colors"
+          >
+            ×
+          </button>
+        </div>
       </div>
 
       {/* Loading */}
       {candidate.loading && (
-        <div className="flex items-center gap-2 text-sm text-gray-400 py-2">
+        <div className="flex items-center gap-2 text-sm text-gray-400 px-4 pb-4">
           <div className="w-4 h-4 border-2 border-gray-200 border-t-blue-400 rounded-full animate-spin" />
           경로 계산 중...
         </div>
@@ -129,12 +144,12 @@ export default function LocationCard({ candidate, index, onRemove }: Props) {
 
       {/* Error */}
       {!candidate.loading && candidate.error && (
-        <p className="text-xs text-red-400 py-1">{candidate.error}</p>
+        <p className="text-xs text-red-400 px-4 pb-4">{candidate.error}</p>
       )}
 
-      {/* Route summary */}
-      {!candidate.loading && (transit || walk) && (
-        <>
+      {/* 상세 경로 — 펼쳤을 때만 */}
+      {expanded && hasRoute && (
+        <div className="px-4 pb-4 border-t border-gray-100 pt-3 space-y-3">
           <div className="grid grid-cols-2 gap-2">
             <div className="bg-blue-50 rounded-lg p-2 text-center">
               <div className="text-base">🚇</div>
@@ -163,9 +178,8 @@ export default function LocationCard({ candidate, index, onRemove }: Props) {
             </div>
           </div>
 
-          {/* Route detail */}
           {transit?.steps && <RouteSteps steps={transit.steps} />}
-        </>
+        </div>
       )}
     </div>
   )

@@ -98,14 +98,6 @@ export default function ComparePanel({
         ))}
       </div>
 
-      {/* Footer note */}
-      {candidates.some((c) => c.routes.transit) && (
-        <div className="p-3 bg-orange-50 border-t border-orange-100">
-          <p className="text-xs text-orange-500 text-center">
-            대중교통 시간은 자가용 시간 기준 추정값입니다
-          </p>
-        </div>
-      )}
     </div>
   )
 }
