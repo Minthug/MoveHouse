@@ -155,7 +155,7 @@ export default function ComparePanel({
 
         {destination && (
           <div className="pt-1 space-y-2">
-            <p className="text-xs text-gray-400">목적지 주변 편의시설</p>
+            <p className="text-xs text-gray-400">목적지 + 후보지 주변 편의시설</p>
 
             {/* 프리셋 가로 스크롤 */}
             <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">

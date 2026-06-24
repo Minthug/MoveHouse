@@ -50,6 +50,20 @@ export default function App() {
     setActivePlaceCategories(new Set())
   }, [destination?.id])
 
+  // 후보지 변경 시 활성 카테고리 자동 갱신
+  const candidateKey = candidates.map((c) => c.id).join(',')
+  useEffect(() => {
+    if (activePlaceCategories.size === 0 || !destination) return
+    const locations = [
+      { lat: destination.lat, lng: destination.lng, id: destination.id },
+      ...candidates.map((c) => ({ lat: c.lat, lng: c.lng, id: c.id })),
+    ]
+    const categories = [...activePlaceCategories]
+    Promise.all(categories.map((cat) => fetchNearbyPlaces(locations, cat))).then((batches) =>
+      setNearbyPlaces(batches.flat()),
+    )
+  }, [candidateKey]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // localStorage 동기화
   useEffect(() => { writeLocal('commute-destination', destination) }, [destination])
   useEffect(() => {
@@ -128,8 +142,20 @@ export default function App() {
 
   async function handleKeywordSearch(keyword: string) {
     if (!destination || !keyword.trim()) return
-    const places = await searchPlacesByKeyword(keyword, destination.lat, destination.lng, destination.name)
-    setCustomPlaces(places)
+    const locations = [
+      { lat: destination.lat, lng: destination.lng, name: destination.name, id: destination.id },
+      ...candidates.map((c) => ({ lat: c.lat, lng: c.lng, name: c.name, id: c.id })),
+    ]
+    const batches = await Promise.all(
+      locations.map((loc) => searchPlacesByKeyword(keyword, loc.lat, loc.lng, loc.name, 3000, loc.id)),
+    )
+    const seen = new Set<string>()
+    const deduped = batches.flat().filter((p) => {
+      if (seen.has(p.name)) return false
+      seen.add(p.name)
+      return true
+    })
+    setCustomPlaces(deduped)
   }
 
   async function handleToggleCategory(category: PlaceCategory) {
@@ -142,7 +168,11 @@ export default function App() {
     } else {
       next.add(category)
       setActivePlaceCategories(next)
-      const places = await fetchNearbyPlaces(destination.lat, destination.lng, category)
+      const locations = [
+        { lat: destination.lat, lng: destination.lng, id: destination.id },
+        ...candidates.map((c) => ({ lat: c.lat, lng: c.lng, id: c.id })),
+      ]
+      const places = await fetchNearbyPlaces(locations, category)
       setNearbyPlaces((prev) => [...prev.filter((p) => p.category !== category), ...places])
     }
   }

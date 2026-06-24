@@ -8,6 +8,7 @@ export interface NearbyPlace {
   distance: number
   address: string
   category: PlaceCategory | 'CUSTOM'
+  sourceId?: string // destination.id or candidate.id
 }
 
 export const PLACE_CATEGORIES: Record<PlaceCategory, { label: string; emoji: string; color: string; radius: number }> = {
@@ -50,17 +51,45 @@ interface OverpassElement {
   tags?: Record<string, string>
 }
 
+// 여러 위치를 하나의 Overpass 쿼리로 합쳐 rate limit 방지
+export async function fetchNearbyPlaces(
+  locations: { lat: number; lng: number; id: string }[],
+  category: PlaceCategory,
+): Promise<NearbyPlace[]>
+// 하위 호환: 단일 위치 (기존 시그니처)
 export async function fetchNearbyPlaces(
   lat: number,
   lng: number,
   category: PlaceCategory,
+  sourceId?: string,
+): Promise<NearbyPlace[]>
+export async function fetchNearbyPlaces(
+  latOrLocations: number | { lat: number; lng: number; id: string }[],
+  lngOrCategory: number | PlaceCategory,
+  categoryArg?: PlaceCategory,
+  sourceId?: string,
 ): Promise<NearbyPlace[]> {
+  let locs: { lat: number; lng: number; id: string }[]
+  let category: PlaceCategory
+
+  if (Array.isArray(latOrLocations)) {
+    locs = latOrLocations
+    category = lngOrCategory as PlaceCategory
+  } else {
+    locs = [{ lat: latOrLocations, lng: lngOrCategory as number, id: sourceId ?? 'dest' }]
+    category = categoryArg!
+  }
+
   const { radius } = PLACE_CATEGORIES[category]
   const tags = OVERPASS_TAGS[category]
-  const around = `(around:${radius},${lat},${lng})`
 
-  const unions = tags.flatMap((t) => [`node${t}${around};`, `way${t}${around};`]).join('\n')
-  const query = `[out:json][timeout:15];\n(\n${unions}\n);\nout center;`
+  const unions = locs
+    .flatMap((loc) => {
+      const around = `(around:${radius},${loc.lat},${loc.lng})`
+      return tags.flatMap((t) => [`node${t}${around};`, `way${t}${around};`])
+    })
+    .join('\n')
+  const query = `[out:json][timeout:25];\n(\n${unions}\n);\nout center;`
 
   try {
     const res = await fetch(OVERPASS_URL, { method: 'POST', body: query })
@@ -78,18 +107,27 @@ export async function fetchNearbyPlaces(
       if (seen.has(name)) continue
       seen.add(name)
 
+      // 가장 가까운 위치 기준으로 distance / sourceId 결정
+      let nearest = locs[0]
+      let minDist = haversine(locs[0].lat, locs[0].lng, elLat, elLng)
+      for (const loc of locs.slice(1)) {
+        const d = haversine(loc.lat, loc.lng, elLat, elLng)
+        if (d < minDist) { minDist = d; nearest = loc }
+      }
+
       results.push({
         id: String(el.id),
         name,
         lat: elLat,
         lng: elLng,
-        distance: haversine(lat, lng, elLat, elLng),
+        distance: minDist,
         address: el.tags?.['addr:full'] ?? el.tags?.['addr:city'] ?? '',
         category,
+        sourceId: nearest.id,
       })
     }
 
-    return results.sort((a, b) => a.distance - b.distance).slice(0, 15)
+    return results.sort((a, b) => a.distance - b.distance).slice(0, 30)
   } catch {
     return []
   }
@@ -110,6 +148,7 @@ export async function searchPlacesByKeyword(
   destLng: number,
   destName: string,
   maxDistance = 3000,
+  sourceId?: string,
 ): Promise<NearbyPlace[]> {
   try {
     const params = new URLSearchParams({ query: `${destName} ${keyword}`, display: '20' })
@@ -125,13 +164,14 @@ export async function searchPlacesByKeyword(
         const distance = haversine(destLat, destLng, lat, lng)
         if (distance > maxDistance) return null
         return {
-          id: `custom-${i}-${item.title}`,
+          id: `custom-${sourceId ?? 'dest'}-${i}-${item.title}`,
           name: item.title.replace(/<[^>]+>/g, ''),
           lat,
           lng,
           distance,
           address: item.roadAddress || item.address,
           category: 'CUSTOM' as const,
+          ...(sourceId ? { sourceId } : {}),
         }
       })
       .filter((p): p is NearbyPlace => p !== null)
