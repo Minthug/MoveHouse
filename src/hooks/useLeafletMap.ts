@@ -399,7 +399,9 @@ export function useLeafletMap({
     const group = L.layerGroup()
 
     for (const place of nearbyPlaces) {
-      const cfg = PLACE_CATEGORIES[place.category]
+      const cfg = place.category === 'CUSTOM'
+        ? { color: '#6b7280', emoji: '📍' }
+        : PLACE_CATEGORIES[place.category as keyof typeof PLACE_CATEGORIES]
       const icon = L.divIcon({
         html: `<div style="
           background:${cfg.color};

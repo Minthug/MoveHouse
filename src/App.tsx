@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import MapView from './components/MapView'
 import ComparePanel from './components/ComparePanel'
 import { useDirections } from './hooks/useDirections'
-import { fetchNearbyPlaces } from './services/places'
+import { fetchNearbyPlaces, searchPlacesByKeyword } from './services/places'
 import type { PlaceCategory, NearbyPlace } from './services/places'
 import type { AppMode, CandidateLocation, Destination } from './types'
 
@@ -39,12 +39,14 @@ export default function App() {
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null)
   const [activePlaceCategories, setActivePlaceCategories] = useState<Set<PlaceCategory>>(new Set())
   const [nearbyPlaces, setNearbyPlaces] = useState<NearbyPlace[]>([])
+  const [customPlaces, setCustomPlaces] = useState<NearbyPlace[]>([])
   const didRestoreRef = useRef(false)
   const { fetchRoutes } = useDirections()
 
-  // 목적지 바뀌면 편의시설 초기화, 활성화된 카테고리 재조회
+  // 목적지 바뀌면 편의시설 초기화
   useEffect(() => {
     setNearbyPlaces([])
+    setCustomPlaces([])
     setActivePlaceCategories(new Set())
   }, [destination?.id])
 
@@ -124,6 +126,12 @@ export default function App() {
     })
   }
 
+  async function handleKeywordSearch(keyword: string) {
+    if (!destination || !keyword.trim()) return
+    const places = await searchPlacesByKeyword(keyword, destination.lat, destination.lng, destination.name)
+    setCustomPlaces(places)
+  }
+
   async function handleToggleCategory(category: PlaceCategory) {
     if (!destination) return
     const next = new Set(activePlaceCategories)
@@ -156,7 +164,7 @@ export default function App() {
           destination={destination}
           candidates={candidates}
           selectedCandidateId={selectedCandidateId}
-          nearbyPlaces={nearbyPlaces}
+          nearbyPlaces={[...nearbyPlaces, ...customPlaces]}
           onDistrictClick={handleDistrictClick}
         />
       </div>
@@ -175,6 +183,9 @@ export default function App() {
           activePlaceCategories={activePlaceCategories}
           onToggleCategory={handleToggleCategory}
           nearbyPlaces={nearbyPlaces}
+          customPlaces={customPlaces}
+          onKeywordSearch={handleKeywordSearch}
+          onClearCustomPlaces={() => setCustomPlaces([])}
         />
       </div>
     </div>

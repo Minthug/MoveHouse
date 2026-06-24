@@ -1,4 +1,4 @@
-export type PlaceCategory = 'MT1' | 'SW8'
+export type PlaceCategory = 'MT1' | 'SW8' | 'CS2' | 'HP8' | 'PM9' | 'CE7' | 'PK6'
 
 export interface NearbyPlace {
   id: string
@@ -7,40 +7,30 @@ export interface NearbyPlace {
   lng: number
   distance: number
   address: string
-  category: PlaceCategory
+  category: PlaceCategory | 'CUSTOM'
 }
 
 export const PLACE_CATEGORIES: Record<PlaceCategory, { label: string; emoji: string; color: string; radius: number }> = {
-  MT1: { label: '대형마트', emoji: '🛒', color: '#f97316', radius: 2000 },
-  SW8: { label: '지하철역', emoji: '🚇', color: '#3b82f6', radius: 1000 },
+  MT1: { label: '대형마트',  emoji: '🛒', color: '#f97316', radius: 2000 },
+  SW8: { label: '지하철역',  emoji: '🚇', color: '#3b82f6', radius: 1000 },
+  CS2: { label: '편의점',    emoji: '🏪', color: '#10b981', radius: 500  },
+  HP8: { label: '병원',      emoji: '🏥', color: '#ef4444', radius: 1000 },
+  PM9: { label: '약국',      emoji: '💊', color: '#8b5cf6', radius: 500  },
+  CE7: { label: '카페',      emoji: '☕', color: '#a16207', radius: 500  },
+  PK6: { label: '공원',      emoji: '🌳', color: '#16a34a', radius: 1500 },
+}
+
+const OVERPASS_TAGS: Record<PlaceCategory, string[]> = {
+  MT1: ['["shop"="supermarket"]', '["shop"="wholesale"]'],
+  SW8: ['["railway"="station"]["subway"="yes"]', '["railway"="station"]["station"="subway"]', '["railway"="station"]["network"~"Seoul|수도권"]'],
+  CS2: ['["shop"="convenience"]'],
+  HP8: ['["amenity"="hospital"]', '["amenity"="clinic"]'],
+  PM9: ['["amenity"="pharmacy"]'],
+  CE7: ['["amenity"="cafe"]'],
+  PK6: ['["leisure"="park"]', '["leisure"="garden"]'],
 }
 
 const OVERPASS_URL = 'https://overpass-api.de/api/interpreter'
-
-function buildQuery(lat: number, lng: number, category: PlaceCategory): string {
-  const { radius } = PLACE_CATEGORIES[category]
-  const around = `(around:${radius},${lat},${lng})`
-
-  if (category === 'MT1') {
-    return `[out:json][timeout:15];
-(
-  node["shop"="supermarket"]${around};
-  way["shop"="supermarket"]${around};
-  node["shop"="wholesale"]${around};
-  way["shop"="wholesale"]${around};
-);
-out center;`
-  }
-
-  // SW8: 지하철역
-  return `[out:json][timeout:15];
-(
-  node["railway"="station"]["subway"="yes"]${around};
-  node["railway"="station"]["station"="subway"]${around};
-  node["railway"="station"]["network"~"Seoul|수도권"]${around};
-);
-out center;`
-}
 
 function haversine(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6371000
@@ -65,12 +55,15 @@ export async function fetchNearbyPlaces(
   lng: number,
   category: PlaceCategory,
 ): Promise<NearbyPlace[]> {
+  const { radius } = PLACE_CATEGORIES[category]
+  const tags = OVERPASS_TAGS[category]
+  const around = `(around:${radius},${lat},${lng})`
+
+  const unions = tags.flatMap((t) => [`node${t}${around};`, `way${t}${around};`]).join('\n')
+  const query = `[out:json][timeout:15];\n(\n${unions}\n);\nout center;`
+
   try {
-    const query = buildQuery(lat, lng, category)
-    const res = await fetch(OVERPASS_URL, {
-      method: 'POST',
-      body: query,
-    })
+    const res = await fetch(OVERPASS_URL, { method: 'POST', body: query })
     if (!res.ok) return []
     const data: { elements: OverpassElement[] } = await res.json()
 
@@ -97,6 +90,53 @@ export async function fetchNearbyPlaces(
     }
 
     return results.sort((a, b) => a.distance - b.distance).slice(0, 15)
+  } catch {
+    return []
+  }
+}
+
+// 키워드 검색: Naver Local Search → 목적지 근처 결과 필터
+interface NaverLocalItem {
+  title: string
+  address: string
+  roadAddress: string
+  mapx: string
+  mapy: string
+}
+
+export async function searchPlacesByKeyword(
+  keyword: string,
+  destLat: number,
+  destLng: number,
+  destName: string,
+  maxDistance = 3000,
+): Promise<NearbyPlace[]> {
+  try {
+    const params = new URLSearchParams({ query: `${destName} ${keyword}`, display: '20' })
+    const res = await fetch(`/api/geocode?${params}`)
+    if (!res.ok) return []
+    const data: { items: NaverLocalItem[] } = await res.json()
+
+    return (data.items ?? [])
+      .map((item, i) => {
+        const lng = parseInt(item.mapx) / 1e7
+        const lat = parseInt(item.mapy) / 1e7
+        if (!lat || !lng) return null
+        const distance = haversine(destLat, destLng, lat, lng)
+        if (distance > maxDistance) return null
+        return {
+          id: `custom-${i}-${item.title}`,
+          name: item.title.replace(/<[^>]+>/g, ''),
+          lat,
+          lng,
+          distance,
+          address: item.roadAddress || item.address,
+          category: 'CUSTOM' as const,
+        }
+      })
+      .filter((p): p is NearbyPlace => p !== null)
+      .sort((a, b) => a.distance - b.distance)
+      .slice(0, 10)
   } catch {
     return []
   }
