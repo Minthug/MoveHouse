@@ -1,6 +1,8 @@
+import { useState } from 'react'
 import LocationCard from './LocationCard'
 import ModeToggle from './ModeToggle'
 import SearchBar from './SearchBar'
+import CompareAnalysis from './CompareAnalysis'
 import type { AppMode, CandidateLocation, Destination } from '../types'
 
 const MAX_CANDIDATES = 5
@@ -28,6 +30,14 @@ export default function ComparePanel({
   onCandidateSelect,
   onRemoveCandidate,
 }: Props) {
+  const [showAnalysis, setShowAnalysis] = useState(false)
+  const readyCandidates = candidates.filter((c) => c.routes.transit && !c.loading)
+  const canCompare = readyCandidates.length >= 2
+
+  if (showAnalysis) {
+    return <CompareAnalysis candidates={candidates} onBack={() => setShowAnalysis(false)} />
+  }
+
   return (
     <div className="flex flex-col h-full bg-gray-50 border-l border-gray-200">
       {/* Header */}
@@ -102,6 +112,15 @@ export default function ComparePanel({
             onRemove={onRemoveCandidate}
           />
         ))}
+
+        {canCompare && (
+          <button
+            onClick={() => setShowAnalysis(true)}
+            className="w-full mt-1 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold transition-colors flex items-center justify-center gap-2 shadow-sm"
+          >
+            📊 비교 분석하기
+          </button>
+        )}
       </div>
 
     </div>
