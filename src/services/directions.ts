@@ -1,4 +1,4 @@
-import type { Coordinate, RouteResult, CandidateRoutes } from '../types'
+import type { Coordinate, RouteResult, RouteStep, CandidateRoutes } from '../types'
 
 function haversineDistance(a: Coordinate, b: Coordinate): number {
   const R = 6371000
@@ -15,35 +15,66 @@ function haversineDistance(a: Coordinate, b: Coordinate): number {
   return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x))
 }
 
+interface OdsaySubPath {
+  trafficType: 1 | 2 | 3  // 1=지하철 2=버스 3=도보
+  sectionTime: number
+  startName?: string
+  endName?: string
+  lane?: Array<{ name?: string; busNo?: string }>
+}
+
 interface OdsayPath {
   info: {
-    totalTime: number   // minutes
-    payment: number     // KRW
+    totalTime: number
+    payment: number
     busTransitCount: number
     subwayTransitCount: number
   }
+  subPath: OdsaySubPath[]
 }
 
 interface OdsayResponse {
-  result?: {
-    path?: OdsayPath[]
-  }
-  error?: { msg: string }
+  result?: { path?: OdsayPath[] }
+  error?: unknown
+}
+
+function parseSteps(subPaths: OdsaySubPath[]): RouteStep[] {
+  return subPaths.map((sp) => {
+    if (sp.trafficType === 1) {
+      return {
+        type: 'subway' as const,
+        name: sp.lane?.[0]?.name,
+        from: sp.startName,
+        to: sp.endName,
+        duration: sp.sectionTime,
+      }
+    }
+    if (sp.trafficType === 2) {
+      return {
+        type: 'bus' as const,
+        name: sp.lane?.[0]?.busNo,
+        from: sp.startName,
+        to: sp.endName,
+        duration: sp.sectionTime,
+      }
+    }
+    return { type: 'walk' as const, duration: sp.sectionTime }
+  })
 }
 
 async function fetchTransitRoute(
   origin: Coordinate,
   destination: Coordinate,
-): Promise<{ duration: number; fare: number } | null> {
+): Promise<{ duration: number; fare: number; steps: RouteStep[] } | null> {
   try {
     const params = new URLSearchParams({
       SX: String(origin.lng),
       SY: String(origin.lat),
       EX: String(destination.lng),
       EY: String(destination.lat),
-      OPT: '1',          // 최소 시간
-      SearchType: '0',   // 도시 내
-      SearchPathType: '0', // 전체 (지하철+버스)
+      OPT: '1',
+      SearchType: '0',
+      SearchPathType: '0',
     })
     const res = await fetch(`/api/transit?${params}`)
     if (!res.ok) return null
@@ -53,6 +84,7 @@ async function fetchTransitRoute(
     return {
       duration: best.info.totalTime,
       fare: best.info.payment,
+      steps: parseSteps(best.subPath),
     }
   } catch {
     return null
@@ -73,6 +105,7 @@ export async function getRoutes(
         duration: transit.duration,
         fare: transit.fare,
         distance: distanceM,
+        steps: transit.steps,
       }
     : undefined
 

@@ -8,10 +8,19 @@ export interface Location extends Coordinate {
   name: string
 }
 
+export interface RouteStep {
+  type: 'subway' | 'bus' | 'walk'
+  name?: string   // 지하철 노선명 or 버스번호
+  from?: string   // 출발역/정류장
+  to?: string     // 도착역/정류장
+  duration: number
+}
+
 export interface RouteResult {
   duration: number // minutes
   fare: number     // KRW
   distance: number // meters
+  steps?: RouteStep[]
 }
 
 export interface CandidateRoutes {

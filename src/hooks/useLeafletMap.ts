@@ -12,7 +12,7 @@ import {
   getDongColor,
 } from '../data/seoulDistricts'
 import { SUBWAY_LINES } from '../data/seoulSubway'
-import { HAN_RIVER_OUTER, YEOUIDO_HOLE } from '../data/hanRiver'
+import { HAN_RIVER_OUTER, HAN_RIVER_HOLES } from '../data/hanRiver'
 import type { Destination, CandidateLocation, AppMode } from '../types'
 
 const CANDIDATE_COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ec4899']
@@ -51,6 +51,7 @@ export function useLeafletMap({
   const guCodeMapRef = useRef<Map<string, string>>(new Map())
   const subwayLayerGroupRef = useRef<L.LayerGroup | null>(null)
   const seoulBoundsRef = useRef<L.LatLngBounds | null>(null)
+  const destMarkerRef = useRef<L.Marker | null>(null)
 
   // Refs for values used inside stable closures
   const destRef = useRef(destination)
@@ -84,7 +85,7 @@ export function useLeafletMap({
     map.getPane('hanRiverPane')!.style.pointerEvents = 'none'
 
     // 한강 폴리곤
-    L.polygon([HAN_RIVER_OUTER, YEOUIDO_HOLE], {
+    L.polygon([HAN_RIVER_OUTER, ...HAN_RIVER_HOLES], {
       pane: 'hanRiverPane',
       fillColor: '#5b9fd4',
       fillOpacity: 0.65,
@@ -289,6 +290,31 @@ export function useLeafletMap({
       idx++
     })
   }, [destination, candidates])
+
+  // ── Destination marker ────────────────────────────────────────────────
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map) return
+
+    destMarkerRef.current?.remove()
+    destMarkerRef.current = null
+
+    if (!destination) return
+
+    const icon = L.divIcon({
+      html: `<div class="destination-marker">★</div>`,
+      className: '',
+      iconSize: [36, 36],
+      iconAnchor: [18, 18],
+    })
+
+    destMarkerRef.current = L.marker([destination.lat, destination.lng], {
+      icon,
+      interactive: false,
+    }).addTo(map)
+
+    map.flyTo([destination.lat, destination.lng], 14, { duration: 0.8 })
+  }, [destination])
 
   // ── Candidate markers ─────────────────────────────────────────────────
   useEffect(() => {
