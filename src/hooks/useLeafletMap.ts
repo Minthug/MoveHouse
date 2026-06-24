@@ -14,6 +14,8 @@ import {
 import { SUBWAY_LINES } from '../data/seoulSubway'
 import { HAN_RIVER_OUTER, HAN_RIVER_HOLES } from '../data/hanRiver'
 import type { Destination, CandidateLocation, AppMode } from '../types'
+import type { NearbyPlace } from '../services/places'
+import { PLACE_CATEGORIES } from '../services/places'
 
 const CANDIDATE_COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ec4899']
 
@@ -32,6 +34,7 @@ interface UseLeafletMapProps {
   destination: Destination | null
   candidates: CandidateLocation[]
   selectedCandidateId: string | null
+  nearbyPlaces: NearbyPlace[]
   onDistrictClick: (name: string, lat: number, lng: number) => void
   showSubway: boolean
 }
@@ -42,6 +45,7 @@ export function useLeafletMap({
   destination,
   candidates,
   selectedCandidateId,
+  nearbyPlaces,
   onDistrictClick,
   showSubway,
 }: UseLeafletMapProps) {
@@ -55,6 +59,7 @@ export function useLeafletMap({
   const seoulBoundsRef = useRef<L.LatLngBounds | null>(null)
   const destMarkerRef = useRef<L.Marker | null>(null)
   const routeLayerRef = useRef<L.LayerGroup | null>(null)
+  const placeLayerRef = useRef<L.LayerGroup | null>(null)
 
   // Refs for values used inside stable closures
   const destRef = useRef(destination)
@@ -380,6 +385,45 @@ export function useLeafletMap({
       map.fitBounds(L.latLngBounds(allCoords), { padding: [40, 40] })
     }
   }, [selectedCandidateId, candidates])
+
+  // ── Nearby place markers ─────────────────────────────────────────────
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map) return
+
+    placeLayerRef.current?.remove()
+    placeLayerRef.current = null
+
+    if (nearbyPlaces.length === 0) return
+
+    const group = L.layerGroup()
+
+    for (const place of nearbyPlaces) {
+      const cfg = PLACE_CATEGORIES[place.category]
+      const icon = L.divIcon({
+        html: `<div style="
+          background:${cfg.color};
+          color:white;
+          border-radius:50%;
+          width:28px;height:28px;
+          display:flex;align-items:center;justify-content:center;
+          font-size:14px;
+          box-shadow:0 1px 4px rgba(0,0,0,.35);
+          border:2px solid white;
+        ">${cfg.emoji}</div>`,
+        className: '',
+        iconSize: [28, 28],
+        iconAnchor: [14, 14],
+      })
+
+      L.marker([place.lat, place.lng], { icon })
+        .bindTooltip(`<b>${place.name}</b><br/>${place.distance}m`, { direction: 'top', offset: [0, -14] })
+        .addTo(group)
+    }
+
+    group.addTo(map)
+    placeLayerRef.current = group
+  }, [nearbyPlaces])
 
   // ── Subway overlay ────────────────────────────────────────────────────
   useEffect(() => {

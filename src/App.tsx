@@ -2,6 +2,8 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import MapView from './components/MapView'
 import ComparePanel from './components/ComparePanel'
 import { useDirections } from './hooks/useDirections'
+import { fetchNearbyPlaces } from './services/places'
+import type { PlaceCategory, NearbyPlace } from './services/places'
 import type { AppMode, CandidateLocation, Destination } from './types'
 
 const LABELS = ['A', 'B', 'C', 'D', 'E']
@@ -35,8 +37,16 @@ export default function App() {
     })),
   )
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null)
+  const [activePlaceCategories, setActivePlaceCategories] = useState<Set<PlaceCategory>>(new Set())
+  const [nearbyPlaces, setNearbyPlaces] = useState<NearbyPlace[]>([])
   const didRestoreRef = useRef(false)
   const { fetchRoutes } = useDirections()
+
+  // 목적지 바뀌면 편의시설 초기화, 활성화된 카테고리 재조회
+  useEffect(() => {
+    setNearbyPlaces([])
+    setActivePlaceCategories(new Set())
+  }, [destination?.id])
 
   // localStorage 동기화
   useEffect(() => { writeLocal('commute-destination', destination) }, [destination])
@@ -114,6 +124,21 @@ export default function App() {
     })
   }
 
+  async function handleToggleCategory(category: PlaceCategory) {
+    if (!destination) return
+    const next = new Set(activePlaceCategories)
+    if (next.has(category)) {
+      next.delete(category)
+      setActivePlaceCategories(next)
+      setNearbyPlaces((prev) => prev.filter((p) => p.category !== category))
+    } else {
+      next.add(category)
+      setActivePlaceCategories(next)
+      const places = await fetchNearbyPlaces(destination.lat, destination.lng, category)
+      setNearbyPlaces((prev) => [...prev.filter((p) => p.category !== category), ...places])
+    }
+  }
+
   function handleReset() {
     setDestination(null)
     setCandidates([])
@@ -131,6 +156,7 @@ export default function App() {
           destination={destination}
           candidates={candidates}
           selectedCandidateId={selectedCandidateId}
+          nearbyPlaces={nearbyPlaces}
           onDistrictClick={handleDistrictClick}
         />
       </div>
@@ -146,6 +172,9 @@ export default function App() {
           onCandidateSelect={handleCandidateSelect}
           onRemoveCandidate={handleRemoveCandidate}
           onReset={handleReset}
+          activePlaceCategories={activePlaceCategories}
+          onToggleCategory={handleToggleCategory}
+          nearbyPlaces={nearbyPlaces}
         />
       </div>
     </div>

@@ -4,6 +4,8 @@ import ModeToggle from './ModeToggle'
 import SearchBar from './SearchBar'
 import CompareAnalysis from './CompareAnalysis'
 import type { AppMode, CandidateLocation, Destination } from '../types'
+import { PLACE_CATEGORIES } from '../services/places'
+import type { PlaceCategory, NearbyPlace } from '../services/places'
 
 const MAX_CANDIDATES = 5
 
@@ -18,6 +20,9 @@ interface Props {
   onCandidateSelect: (lat: number, lng: number, address: string) => void
   onRemoveCandidate: (id: string) => void
   onReset: () => void
+  activePlaceCategories: Set<PlaceCategory>
+  onToggleCategory: (category: PlaceCategory) => void
+  nearbyPlaces: NearbyPlace[]
 }
 
 export default function ComparePanel({
@@ -31,6 +36,9 @@ export default function ComparePanel({
   onCandidateSelect,
   onRemoveCandidate,
   onReset,
+  activePlaceCategories,
+  onToggleCategory,
+  nearbyPlaces,
 }: Props) {
   const [showAnalysis, setShowAnalysis] = useState(false)
   const readyCandidates = candidates.filter((c) => c.routes.transit && !c.loading)
@@ -86,6 +94,36 @@ export default function ComparePanel({
           <div className="flex items-center gap-2 bg-red-50 rounded-lg px-3 py-2">
             <span className="text-red-500 text-sm">★</span>
             <span className="text-sm text-red-700 truncate flex-1">{destination.name}</span>
+          </div>
+        )}
+
+        {destination && (
+          <div className="pt-1">
+            <p className="text-xs text-gray-400 mb-1.5">목적지 주변 편의시설</p>
+            <div className="flex gap-2">
+              {(Object.entries(PLACE_CATEGORIES) as [PlaceCategory, typeof PLACE_CATEGORIES[PlaceCategory]][]).map(([code, cfg]) => {
+                const active = activePlaceCategories.has(code)
+                const count = nearbyPlaces.filter((p) => p.category === code).length
+                return (
+                  <button
+                    key={code}
+                    onClick={() => onToggleCategory(code)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all border ${
+                      active
+                        ? 'text-white border-transparent'
+                        : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'
+                    }`}
+                    style={active ? { background: cfg.color, borderColor: cfg.color } : {}}
+                  >
+                    <span>{cfg.emoji}</span>
+                    <span>{cfg.label}</span>
+                    {active && count > 0 && (
+                      <span className="bg-white/30 rounded-full px-1">{count}</span>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
           </div>
         )}
       </div>

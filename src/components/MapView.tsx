@@ -1,16 +1,18 @@
 import { useRef, useState } from 'react'
 import { useLeafletMap } from '../hooks/useLeafletMap'
 import type { Destination, CandidateLocation, AppMode } from '../types'
+import type { NearbyPlace } from '../services/places'
 
 interface Props {
   mode: AppMode
   destination: Destination | null
   candidates: CandidateLocation[]
   selectedCandidateId: string | null
+  nearbyPlaces: NearbyPlace[]
   onDistrictClick: (name: string, lat: number, lng: number) => void
 }
 
-export default function MapView({ mode, destination, candidates, selectedCandidateId, onDistrictClick }: Props) {
+export default function MapView({ mode, destination, candidates, selectedCandidateId, nearbyPlaces, onDistrictClick }: Props) {
   const mapContainerRef = useRef<HTMLDivElement>(null)
   const [showSubway, setShowSubway] = useState(false)
 
@@ -20,6 +22,7 @@ export default function MapView({ mode, destination, candidates, selectedCandida
     destination,
     candidates,
     selectedCandidateId,
+    nearbyPlaces,
     onDistrictClick,
     showSubway,
   })
