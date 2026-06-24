@@ -37,7 +37,14 @@ export default function ComparePanel({
   const canCompare = readyCandidates.length >= 2
 
   if (showAnalysis) {
-    return <CompareAnalysis candidates={candidates} onBack={() => setShowAnalysis(false)} />
+    return (
+      <CompareAnalysis
+        candidates={candidates}
+        selectedCandidateId={selectedCandidateId}
+        onSelectCandidate={(id) => onSelectCandidate(id)}
+        onBack={() => setShowAnalysis(false)}
+      />
+    )
   }
 
   return (

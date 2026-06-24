@@ -37,10 +37,12 @@ function lineColor(name?: string) {
 
 interface Props {
   candidates: CandidateLocation[]
+  selectedCandidateId: string | null
+  onSelectCandidate: (id: string) => void
   onBack: () => void
 }
 
-export default function CompareAnalysis({ candidates, onBack }: Props) {
+export default function CompareAnalysis({ candidates, selectedCandidateId, onSelectCandidate, onBack }: Props) {
   const ready = candidates.filter((c) => c.routes.transit && !c.loading)
 
   const ranked = [...ready].sort(
@@ -86,10 +88,16 @@ export default function CompareAnalysis({ candidates, onBack }: Props) {
 
             const transitSteps = (transit.steps ?? []).filter((s) => s.type !== 'walk')
 
+            const isSelected = selectedCandidateId === c.id
+
             return (
               <div
                 key={c.id}
-                className={`bg-white rounded-xl border shadow-sm overflow-hidden ${isFirst ? 'border-yellow-300 ring-2 ring-yellow-100' : 'border-gray-200'}`}
+                className={`bg-white rounded-xl border shadow-sm overflow-hidden cursor-pointer transition-all ${
+                  isSelected ? 'border-blue-400 ring-2 ring-blue-100' :
+                  isFirst ? 'border-yellow-300 ring-2 ring-yellow-100' : 'border-gray-200 hover:border-gray-300'
+                }`}
+                onClick={() => onSelectCandidate(c.id)}
               >
                 {/* Candidate header */}
                 <div className="flex items-center gap-3 px-4 pt-4 pb-2">
@@ -101,7 +109,12 @@ export default function CompareAnalysis({ candidates, onBack }: Props) {
                     {c.label}
                   </div>
                   <span className="text-sm font-semibold text-gray-800 flex-1 truncate">{c.name}</span>
-                  {isFirst && (
+                  {isSelected && (
+                    <span className="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
+                      지도 표시 중
+                    </span>
+                  )}
+                  {!isSelected && isFirst && (
                     <span className="text-xs font-medium text-yellow-600 bg-yellow-50 px-2 py-0.5 rounded-full">
                       최단 시간
                     </span>
