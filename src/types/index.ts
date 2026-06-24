@@ -28,7 +28,6 @@ export interface RouteResult {
 export interface CandidateRoutes {
   transit?: RouteResult
   driving?: RouteResult
-  walk?: RouteResult
 }
 
 export interface CandidateLocation extends Location {

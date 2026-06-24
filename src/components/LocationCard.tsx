@@ -94,10 +94,10 @@ interface Props {
 
 export default function LocationCard({ candidate, index, selected, onSelect, onRemove }: Props) {
   const color = CANDIDATE_COLORS[index % CANDIDATE_COLORS.length]
-  const { transit, walk } = candidate.routes
+  const { transit } = candidate.routes
   const monthlyFare = transit?.fare ? calcMonthlyFare(transit.fare) : null
 
-  const hasRoute = !candidate.loading && (transit || walk)
+  const hasRoute = !candidate.loading && !!transit
 
   return (
     <div className={`bg-white border rounded-xl shadow-sm overflow-hidden transition-all ${selected ? 'border-blue-400 ring-2 ring-blue-100' : 'border-gray-200'}`}>
@@ -150,31 +150,19 @@ export default function LocationCard({ candidate, index, selected, onSelect, onR
       {/* 상세 경로 — 선택됐을 때만 */}
       {selected && hasRoute && (
         <div className="px-4 pb-4 border-t border-gray-100 pt-3 space-y-3">
-          <div className="grid grid-cols-2 gap-2">
-            <div className="bg-blue-50 rounded-lg p-2 text-center">
-              <div className="text-base">🚇</div>
-              <div className="text-xs text-gray-400 mt-0.5">대중교통</div>
-              {transit ? (
-                <>
-                  <div className="text-sm font-semibold text-gray-800 mt-1">
-                    {formatDuration(transit.duration)}
-                  </div>
-                  <div className="text-xs text-gray-400">{formatFare(transit.fare)}</div>
-                </>
-              ) : (
-                <div className="text-xs text-gray-300 mt-1">—</div>
-              )}
-            </div>
-            <div className="bg-gray-50 rounded-lg p-2 text-center">
-              <div className="text-base">🚶</div>
-              <div className="text-xs text-gray-400 mt-0.5">도보</div>
-              {walk ? (
-                <div className="text-sm font-semibold text-gray-800 mt-1">
-                  {formatDuration(walk.duration)}
+          <div className="bg-blue-50 rounded-lg p-3 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-xl">🚇</span>
+              <div>
+                <div className="text-xs text-gray-400">대중교통</div>
+                <div className="text-sm font-semibold text-gray-800">
+                  {formatDuration(transit!.duration)}
                 </div>
-              ) : (
-                <div className="text-xs text-gray-300 mt-1">—</div>
-              )}
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="text-xs text-gray-400">편도</div>
+              <div className="text-sm font-medium text-gray-600">{formatFare(transit!.fare)}</div>
             </div>
           </div>
 

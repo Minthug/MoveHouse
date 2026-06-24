@@ -130,28 +130,12 @@ export async function getRoutes(
   destination: Coordinate,
 ): Promise<CandidateRoutes> {
   const distanceM = haversineDistance(origin, destination)
-  const walkDuration = Math.round(distanceM / 67) // 4km/h ≈ 67m/min
-
   const transit = await fetchTransitRoute(origin, destination)
 
-  const transitResult: RouteResult | undefined = transit
-    ? {
-        duration: transit.duration,
-        fare: transit.fare,
-        distance: distanceM,
-        steps: transit.steps,
-      }
-    : undefined
-
-  const walkResult: RouteResult = {
-    duration: walkDuration,
-    fare: 0,
-    distance: distanceM,
-  }
-
   return {
-    transit: transitResult,
-    walk: walkResult,
+    transit: transit
+      ? { duration: transit.duration, fare: transit.fare, distance: distanceM, steps: transit.steps }
+      : undefined,
   }
 }
 
