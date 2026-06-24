@@ -17,6 +17,7 @@ interface Props {
   onDestinationSelect: (lat: number, lng: number, address: string) => void
   onCandidateSelect: (lat: number, lng: number, address: string) => void
   onRemoveCandidate: (id: string) => void
+  onReset: () => void
 }
 
 export default function ComparePanel({
@@ -29,6 +30,7 @@ export default function ComparePanel({
   onDestinationSelect,
   onCandidateSelect,
   onRemoveCandidate,
+  onReset,
 }: Props) {
   const [showAnalysis, setShowAnalysis] = useState(false)
   const readyCandidates = candidates.filter((c) => c.routes.transit && !c.loading)
@@ -41,11 +43,24 @@ export default function ComparePanel({
   return (
     <div className="flex flex-col h-full bg-gray-50 border-l border-gray-200">
       {/* Header */}
-      <div className="p-4 bg-white border-b border-gray-200">
-        <h1 className="text-base font-bold text-gray-900 mb-1">이사 통근 비교</h1>
-        <p className="text-xs text-gray-400">
-          목적지와 이사 후보지를 찍으면 교통 시간을 한눈에 비교해드려요
-        </p>
+      <div className="p-4 bg-white border-b border-gray-200 flex items-start justify-between">
+        <div>
+          <h1 className="text-base font-bold text-gray-900 mb-1">이사 통근 비교</h1>
+          <p className="text-xs text-gray-400">
+            목적지와 이사 후보지를 찍으면 교통 시간을 한눈에 비교해드려요
+          </p>
+        </div>
+        {(destination || candidates.length > 0) && (
+          <button
+            onClick={() => {
+              if (window.confirm('목적지와 후보지를 모두 초기화할까요?')) onReset()
+            }}
+            className="text-xs text-gray-300 hover:text-red-400 transition-colors mt-0.5 shrink-0"
+            title="전체 초기화"
+          >
+            초기화
+          </button>
+        )}
       </div>
 
       {/* Destination section */}

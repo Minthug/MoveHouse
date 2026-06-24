@@ -114,6 +114,15 @@ export default function App() {
     })
   }
 
+  function handleReset() {
+    setDestination(null)
+    setCandidates([])
+    setSelectedCandidateId(null)
+    setMode('set-destination')
+    localStorage.removeItem('commute-destination')
+    localStorage.removeItem('commute-candidates')
+  }
+
   return (
     <div className="flex h-screen w-full overflow-hidden">
       <div className="flex-1 relative">
@@ -136,6 +145,7 @@ export default function App() {
           onDestinationSelect={handleDestinationSelect}
           onCandidateSelect={handleCandidateSelect}
           onRemoveCandidate={handleRemoveCandidate}
+          onReset={handleReset}
         />
       </div>
     </div>
