@@ -135,7 +135,8 @@ interface Props {
 export default function LocationCard({ candidate, index, selected, selectedRouteType, onSelect, onRemove }: Props) {
   const color = CANDIDATE_COLORS[index % CANDIDATE_COLORS.length]
   const { transit, bus } = candidate.routes
-  const activeRoute = selected ? (selectedRouteType === 'bus' && bus ? bus : transit) : transit
+  const hasBus = bus != null  // null(조회완료/차이없음)과 RouteResult 구분
+  const activeRoute = selected ? (selectedRouteType === 'bus' && hasBus ? bus! : transit) : transit
   const monthlyFare = activeRoute?.fare ? calcMonthlyFare(activeRoute.fare) : null
 
   const hasRoute = !candidate.loading && !!transit
@@ -161,9 +162,9 @@ export default function LocationCard({ candidate, index, selected, selectedRoute
                 🚇 {formatDuration(transit.duration)} · {formatFare(transit.fare)}
                 {monthlyFare && transit === activeRoute && <span className="text-gray-400"> · 월 {formatFare(monthlyFare)}</span>}
               </p>
-              {bus && (
+              {hasBus && (
                 <p className="text-xs text-green-600">
-                  🚌 {formatDuration(bus.duration)} · {formatFare(bus.fare)}
+                  🚌 {formatDuration(bus!.duration)} · {formatFare(bus!.fare)}
                 </p>
               )}
             </div>
@@ -206,11 +207,11 @@ export default function LocationCard({ candidate, index, selected, selectedRoute
             active={selectedRouteType === 'transit'}
             onClick={() => onSelect(candidate.id, 'transit')}
           />
-          {bus && (
+          {hasBus && (
             <RouteDetailCard
               icon="🚌"
               label="버스 우선"
-              route={bus}
+              route={bus!}
               active={selectedRouteType === 'bus'}
               onClick={() => onSelect(candidate.id, 'bus')}
             />

@@ -136,21 +136,23 @@ export async function getRoutes(
     fetchTransitRoute(origin, destination, '2'),
   ])
 
-  // 버스 우선 경로가 지하철 최적과 5분 이상 차이 나지 않으면 동일한 것으로 간주해 생략
-  const isBusDifferent =
-    busResult && transit
-      ? Math.abs(busResult.duration - transit.duration) >= 5 ||
+  // null = 조회했지만 지하철과 의미있는 차이 없음 / undefined = 미조회
+  const isBusMeaningful =
+    busResult &&
+    (transit
+      ? Math.abs(busResult.duration - transit.duration) >= 3 ||
         busResult.steps.some((s) => s.type === 'bus')
-      : !!busResult
+      : true)
 
   return {
     transit: transit
       ? { duration: transit.duration, fare: transit.fare, distance: distanceM, steps: transit.steps }
       : undefined,
-    bus:
-      busResult && isBusDifferent
+    bus: busResult
+      ? isBusMeaningful
         ? { duration: busResult.duration, fare: busResult.fare, distance: distanceM, steps: busResult.steps }
-        : undefined,
+        : null   // 조회 완료, 차이 없음
+      : null,    // API 실패도 null로 처리
   }
 }
 

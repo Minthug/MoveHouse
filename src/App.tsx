@@ -78,13 +78,14 @@ export default function App() {
     writeLocal('commute-candidates', candidates.map((c) => ({ ...c, loading: false })))
   }, [candidates])
 
-  // 복원 후 경로 없는 후보지 재조회
+  // 복원 후 경로 없는 후보지 재조회 + 버스 미조회(undefined) 후보지 백그라운드 업데이트
   useEffect(() => {
     if (didRestoreRef.current || !destination) return
     didRestoreRef.current = true
-    const pending = candidates.filter((c) => !c.routes.transit && !c.error)
-    if (pending.length === 0) return
-    for (const c of pending) {
+
+    // transit 없는 후보지: 전체 재조회
+    const noTransit = candidates.filter((c) => !c.routes.transit && !c.error)
+    for (const c of noTransit) {
       fetchRoutes({ lat: c.lat, lng: c.lng }, destination)
         .then((routes) => setCandidates((prev) =>
           prev.map((p) => p.id === c.id ? { ...p, loading: false, routes } : p),
@@ -92,6 +93,16 @@ export default function App() {
         .catch(() => setCandidates((prev) =>
           prev.map((p) => p.id === c.id ? { ...p, loading: false, error: '경로를 가져오지 못했어요' } : p),
         ))
+    }
+
+    // transit 있지만 bus가 undefined(= 기능 추가 전 데이터): 버스만 백그라운드 조회
+    const noBus = candidates.filter((c) => c.routes.transit && c.routes.bus === undefined && !c.error)
+    for (const c of noBus) {
+      fetchRoutes({ lat: c.lat, lng: c.lng }, destination)
+        .then((routes) => setCandidates((prev) =>
+          prev.map((p) => p.id === c.id ? { ...p, routes: { ...p.routes, bus: routes.bus } } : p),
+        ))
+        .catch(() => {})
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 

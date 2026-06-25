@@ -26,8 +26,8 @@ export interface RouteResult {
 }
 
 export interface CandidateRoutes {
-  transit?: RouteResult  // 지하철 최적
-  bus?: RouteResult      // 버스 우선
+  transit?: RouteResult   // 지하철 최적
+  bus?: RouteResult | null // 버스 우선: undefined=미조회, null=조회했지만 지하철과 차이 없음
 }
 
 export interface CandidateLocation extends Location {
