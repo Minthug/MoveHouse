@@ -27,3 +27,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+.granite
+
+# Toss mini app build artifact
+*.ait

@@ -1,4 +1,5 @@
 import type { Coordinate, RouteResult, RouteStep, CandidateRoutes } from '../types'
+import { apiUrl } from '../lib/api'
 
 function haversineDistance(a: Coordinate, b: Coordinate): number {
   const R = 6371000
@@ -111,7 +112,7 @@ async function fetchTransitRoute(
       SearchType: '0',
       SearchPathType: searchPathType,
     })
-    const res = await fetch(`/api/transit?${params}`)
+    const res = await fetch(apiUrl(`/api/transit?${params}`))
     if (!res.ok) return null
     const data: OdsayResponse = await res.json()
     const best = data.result?.path?.[0]

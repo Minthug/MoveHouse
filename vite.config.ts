@@ -38,6 +38,24 @@ export default defineConfig(({ mode }) => {
             'X-NCP-APIGW-API-KEY': env.NAVER_CLIENT_SECRET ?? '',
           },
         },
+        '/api/juso-coord': {
+          target: 'https://business.juso.go.kr',
+          changeOrigin: true,
+          rewrite: (path) => {
+            const base = path.replace(/^\/api\/juso-coord/, '/addrlink/addrCoordApi.do')
+            const sep = base.includes('?') ? '&' : '?'
+            return `${base}${sep}confmKey=${env.JUSO_COORD_KEY ?? ''}&resultType=json`
+          },
+        },
+        '/api/juso': {
+          target: 'https://business.juso.go.kr',
+          changeOrigin: true,
+          rewrite: (path) => {
+            const base = path.replace(/^\/api\/juso/, '/addrlink/addrLinkApi.do')
+            const sep = base.includes('?') ? '&' : '?'
+            return `${base}${sep}confmKey=${env.JUSO_API_KEY ?? ''}&resultType=json`
+          },
+        },
       },
     },
   }

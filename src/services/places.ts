@@ -1,3 +1,5 @@
+import { apiUrl } from '../lib/api'
+
 export type PlaceCategory = 'MT1' | 'SW8' | 'CS2' | 'HP8' | 'PM9' | 'CE7' | 'PK6'
 
 export interface NearbyPlace {
@@ -168,7 +170,7 @@ export async function searchPlacesByKeyword(
 ): Promise<NearbyPlace[]> {
   try {
     const params = new URLSearchParams({ query: `${destName} ${keyword}`, display: '20' })
-    const res = await fetch(`/api/geocode?${params}`)
+    const res = await fetch(apiUrl(`/api/geocode?${params}`))
     if (!res.ok) return []
     const data: { items: NaverLocalItem[] } = await res.json()
 

@@ -1,15 +1,31 @@
 import { useState, useRef } from 'react'
+import proj4 from 'proj4'
+import { apiUrl } from '../lib/api'
 
-interface NaverLocalItem {
-  title: string
-  address: string
-  roadAddress: string
-  mapx: string // lng × 10^7 (e.g. 1270368490 → 127.036849)
-  mapy: string // lat × 10^7 (e.g.  374999810 →  37.499981)
+// UTMK (EPSG:5179) 정의 — Juso 좌표 API가 이 좌표계로 반환
+proj4.defs(
+  'EPSG:5179',
+  '+proj=tmerc +lat_0=38 +lon_0=127.5 +k=0.9999 +x_0=1000000 +y_0=2000000 +ellps=GRS80 +units=m +no_defs',
+)
+
+function utmkToWgs84(x: number, y: number): { lat: number; lng: number } {
+  const [lng, lat] = proj4('EPSG:5179', 'WGS84', [x, y])
+  return { lat, lng }
 }
 
-function stripHtml(str: string) {
-  return str.replace(/<[^>]*>/g, '')
+interface JusoItem {
+  roadAddr: string
+  roadAddrPart1: string
+  jibunAddr: string
+  zipNo: string
+  bdNm: string
+  admCd: string
+  rnMgtSn: string
+  udrtYn: string
+  buldMnnm: string
+  buldSlno: string
+  entX: string
+  entY: string
 }
 
 interface Props {
@@ -17,9 +33,28 @@ interface Props {
   onSelect: (lat: number, lng: number, address: string) => void
 }
 
+async function fetchCoord(item: JusoItem): Promise<{ lat: number; lng: number } | null> {
+  try {
+    const params = new URLSearchParams({
+      admCd: item.admCd,
+      rnMgtSn: item.rnMgtSn,
+      udrtYn: item.udrtYn,
+      buldMnnm: item.buldMnnm,
+      buldSlno: item.buldSlno,
+    })
+    const res = await fetch(apiUrl(`/api/juso-coord?${params}`))
+    const data = await res.json()
+    const juso = data?.results?.juso?.[0]
+    if (!juso?.entX || !juso?.entY) return null
+    return utmkToWgs84(parseFloat(juso.entX), parseFloat(juso.entY))
+  } catch {
+    return null
+  }
+}
+
 export default function SearchBar({ placeholder, onSelect }: Props) {
   const [query, setQuery] = useState('')
-  const [results, setResults] = useState<NaverLocalItem[]>([])
+  const [results, setResults] = useState<JusoItem[]>([])
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -31,17 +66,17 @@ export default function SearchBar({ placeholder, onSelect }: Props) {
     setLoading(true)
     setError('')
     try {
-      const res = await fetch(`/api/geocode?query=${encodeURIComponent(q)}&display=5`)
+      const params = new URLSearchParams({ keyword: q, currentPage: '1', countPerPage: '7' })
+      const res = await fetch(apiUrl(`/api/juso?${params}`))
       const data = await res.json()
-
-      if (!res.ok) {
+      const errCode = data?.results?.common?.errorCode
+      if (errCode && errCode !== '0') {
         setError('검색 중 오류가 발생했습니다')
         setResults([])
         setOpen(false)
         return
       }
-
-      const items: NaverLocalItem[] = data.items ?? []
+      const items: JusoItem[] = data?.results?.juso ?? []
       setResults(items)
       setOpen(items.length > 0)
       if (items.length === 0) setError('검색 결과가 없습니다')
@@ -53,15 +88,27 @@ export default function SearchBar({ placeholder, onSelect }: Props) {
     }
   }
 
-  function handleSelect(item: NaverLocalItem) {
-    const lat = parseInt(item.mapy) / 1e7
-    const lng = parseInt(item.mapx) / 1e7
-    const address = item.roadAddress || item.address
-    onSelect(lat, lng, stripHtml(address))
-    setQuery(stripHtml(item.title))
+  async function handleSelect(item: JusoItem) {
+    const label = item.bdNm ? `${item.roadAddr} (${item.bdNm})` : item.roadAddr
+    setQuery(label)
     setOpen(false)
     setResults([])
     setError('')
+
+    // entX/entY 직접 제공 시 사용, 아니면 coord API 호출
+    const directLat = parseFloat(item.entY)
+    const directLng = parseFloat(item.entX)
+    if (directLat && directLng) {
+      onSelect(directLat, directLng, label)
+      return
+    }
+
+    const coord = await fetchCoord(item)
+    if (coord) {
+      onSelect(coord.lat, coord.lng, label)
+    } else {
+      setError('좌표를 가져오지 못했습니다')
+    }
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
@@ -103,10 +150,10 @@ export default function SearchBar({ placeholder, onSelect }: Props) {
               className="w-full text-left px-3 py-2.5 text-sm hover:bg-blue-50 border-b border-gray-100 last:border-0 transition-colors"
             >
               <div className="font-medium text-gray-800 truncate">
-                {stripHtml(item.title)}
+                {item.bdNm ? `${item.roadAddrPart1} (${item.bdNm})` : item.roadAddrPart1}
               </div>
               <div className="text-xs text-gray-400 truncate mt-0.5">
-                {item.roadAddress || item.address}
+                {item.jibunAddr} · {item.zipNo}
               </div>
             </button>
           ))}
