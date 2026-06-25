@@ -38,7 +38,7 @@ function lineColor(name?: string) {
 interface Props {
   candidates: CandidateLocation[]
   selectedCandidateId: string | null
-  onSelectCandidate: (id: string) => void
+  onSelectCandidate: (id: string, routeType: 'transit' | 'bus') => void
   onBack: () => void
 }
 
@@ -97,7 +97,7 @@ export default function CompareAnalysis({ candidates, selectedCandidateId, onSel
                   isSelected ? 'border-blue-400 ring-2 ring-blue-100' :
                   isFirst ? 'border-yellow-300 ring-2 ring-yellow-100' : 'border-gray-200 hover:border-gray-300'
                 }`}
-                onClick={() => onSelectCandidate(c.id)}
+                onClick={() => onSelectCandidate(c.id, 'transit')}
               >
                 {/* Candidate header */}
                 <div className="flex items-center gap-3 px-4 pt-4 pb-2">

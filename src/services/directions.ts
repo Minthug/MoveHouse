@@ -99,6 +99,7 @@ function parseSteps(subPaths: OdsaySubPath[]): RouteStep[] {
 async function fetchTransitRoute(
   origin: Coordinate,
   destination: Coordinate,
+  searchPathType: '0' | '2' = '0',
 ): Promise<{ duration: number; fare: number; steps: RouteStep[] } | null> {
   try {
     const params = new URLSearchParams({
@@ -108,7 +109,7 @@ async function fetchTransitRoute(
       EY: String(destination.lat),
       OPT: '1',
       SearchType: '0',
-      SearchPathType: '0',
+      SearchPathType: searchPathType,
     })
     const res = await fetch(`/api/transit?${params}`)
     if (!res.ok) return null
@@ -130,12 +131,26 @@ export async function getRoutes(
   destination: Coordinate,
 ): Promise<CandidateRoutes> {
   const distanceM = haversineDistance(origin, destination)
-  const transit = await fetchTransitRoute(origin, destination)
+  const [transit, busResult] = await Promise.all([
+    fetchTransitRoute(origin, destination, '0'),
+    fetchTransitRoute(origin, destination, '2'),
+  ])
+
+  // 버스 우선 경로가 지하철 최적과 5분 이상 차이 나지 않으면 동일한 것으로 간주해 생략
+  const isBusDifferent =
+    busResult && transit
+      ? Math.abs(busResult.duration - transit.duration) >= 5 ||
+        busResult.steps.some((s) => s.type === 'bus')
+      : !!busResult
 
   return {
     transit: transit
       ? { duration: transit.duration, fare: transit.fare, distance: distanceM, steps: transit.steps }
       : undefined,
+    bus:
+      busResult && isBusDifferent
+        ? { duration: busResult.duration, fare: busResult.fare, distance: distanceM, steps: busResult.steps }
+        : undefined,
   }
 }
 

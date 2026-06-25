@@ -8,11 +8,12 @@ interface Props {
   destination: Destination | null
   candidates: CandidateLocation[]
   selectedCandidateId: string | null
+  selectedRouteType: 'transit' | 'bus'
   nearbyPlaces: NearbyPlace[]
   onDistrictClick: (name: string, lat: number, lng: number) => void
 }
 
-export default function MapView({ mode, destination, candidates, selectedCandidateId, nearbyPlaces, onDistrictClick }: Props) {
+export default function MapView({ mode, destination, candidates, selectedCandidateId, selectedRouteType, nearbyPlaces, onDistrictClick }: Props) {
   const mapContainerRef = useRef<HTMLDivElement>(null)
   const [showSubway, setShowSubway] = useState(false)
 
@@ -22,6 +23,7 @@ export default function MapView({ mode, destination, candidates, selectedCandida
     destination,
     candidates,
     selectedCandidateId,
+    selectedRouteType,
     nearbyPlaces,
     onDistrictClick,
     showSubway,

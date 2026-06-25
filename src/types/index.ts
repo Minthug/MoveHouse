@@ -26,8 +26,8 @@ export interface RouteResult {
 }
 
 export interface CandidateRoutes {
-  transit?: RouteResult
-  driving?: RouteResult
+  transit?: RouteResult  // 지하철 최적
+  bus?: RouteResult      // 버스 우선
 }
 
 export interface CandidateLocation extends Location {

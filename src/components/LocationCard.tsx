@@ -1,5 +1,5 @@
 import { calcMonthlyFare } from '../services/directions'
-import type { CandidateLocation, RouteStep } from '../types'
+import type { CandidateLocation, RouteResult, RouteStep } from '../types'
 
 const CANDIDATE_COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ec4899']
 
@@ -84,27 +84,68 @@ function RouteSteps({ steps }: { steps: RouteStep[] }) {
   )
 }
 
+function RouteDetailCard({
+  icon,
+  label,
+  route,
+  active,
+  onClick,
+}: {
+  icon: string
+  label: string
+  route: RouteResult
+  active: boolean
+  onClick: () => void
+}) {
+  const monthly = calcMonthlyFare(route.fare)
+  return (
+    <button
+      onClick={onClick}
+      className={`w-full rounded-lg p-3 flex items-center justify-between text-left transition-all border ${
+        active
+          ? 'border-blue-400 bg-blue-50 ring-1 ring-blue-200'
+          : 'border-gray-100 bg-gray-50 hover:bg-gray-100'
+      }`}
+    >
+      <div className="flex items-center gap-2">
+        <span className="text-xl">{icon}</span>
+        <div>
+          <div className="text-xs text-gray-400">{label}</div>
+          <div className="text-sm font-semibold text-gray-800">{formatDuration(route.duration)}</div>
+        </div>
+      </div>
+      <div className="text-right">
+        <div className="text-xs text-gray-400">편도</div>
+        <div className="text-xs font-medium text-gray-600">{formatFare(route.fare)}</div>
+        <div className="text-xs text-gray-400">월 {formatFare(monthly)}</div>
+      </div>
+    </button>
+  )
+}
+
 interface Props {
   candidate: CandidateLocation
   index: number
   selected: boolean
-  onSelect: (id: string) => void
+  selectedRouteType: 'transit' | 'bus'
+  onSelect: (id: string, routeType: 'transit' | 'bus') => void
   onRemove: (id: string) => void
 }
 
-export default function LocationCard({ candidate, index, selected, onSelect, onRemove }: Props) {
+export default function LocationCard({ candidate, index, selected, selectedRouteType, onSelect, onRemove }: Props) {
   const color = CANDIDATE_COLORS[index % CANDIDATE_COLORS.length]
-  const { transit } = candidate.routes
-  const monthlyFare = transit?.fare ? calcMonthlyFare(transit.fare) : null
+  const { transit, bus } = candidate.routes
+  const activeRoute = selected ? (selectedRouteType === 'bus' && bus ? bus : transit) : transit
+  const monthlyFare = activeRoute?.fare ? calcMonthlyFare(activeRoute.fare) : null
 
   const hasRoute = !candidate.loading && !!transit
 
   return (
     <div className={`bg-white border rounded-xl shadow-sm overflow-hidden transition-all ${selected ? 'border-blue-400 ring-2 ring-blue-100' : 'border-gray-200'}`}>
-      {/* Header — 클릭으로 지도에 경로 표시 */}
+      {/* Header */}
       <div
         className={`flex items-center gap-3 p-4 ${hasRoute ? 'cursor-pointer hover:bg-gray-50 transition-colors' : ''}`}
-        onClick={() => hasRoute && onSelect(candidate.id)}
+        onClick={() => hasRoute && onSelect(candidate.id, selected ? selectedRouteType : 'transit')}
       >
         <div
           className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0"
@@ -115,10 +156,17 @@ export default function LocationCard({ candidate, index, selected, onSelect, onR
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-gray-800 truncate">{candidate.name}</p>
           {transit && !candidate.loading && (
-            <p className="text-xs text-gray-500 mt-0.5">
-              🚇 {formatDuration(transit.duration)} · {formatFare(transit.fare)}
-              {monthlyFare && <span className="text-gray-400"> · 월 {formatFare(monthlyFare)}</span>}
-            </p>
+            <div className="mt-0.5 space-y-0.5">
+              <p className="text-xs text-gray-500">
+                🚇 {formatDuration(transit.duration)} · {formatFare(transit.fare)}
+                {monthlyFare && transit === activeRoute && <span className="text-gray-400"> · 월 {formatFare(monthlyFare)}</span>}
+              </p>
+              {bus && (
+                <p className="text-xs text-green-600">
+                  🚌 {formatDuration(bus.duration)} · {formatFare(bus.fare)}
+                </p>
+              )}
+            </div>
           )}
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -149,24 +197,27 @@ export default function LocationCard({ candidate, index, selected, onSelect, onR
 
       {/* 상세 경로 — 선택됐을 때만 */}
       {selected && hasRoute && (
-        <div className="px-4 pb-4 border-t border-gray-100 pt-3 space-y-3">
-          <div className="bg-blue-50 rounded-lg p-3 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="text-xl">🚇</span>
-              <div>
-                <div className="text-xs text-gray-400">대중교통</div>
-                <div className="text-sm font-semibold text-gray-800">
-                  {formatDuration(transit!.duration)}
-                </div>
-              </div>
-            </div>
-            <div className="text-right">
-              <div className="text-xs text-gray-400">편도</div>
-              <div className="text-sm font-medium text-gray-600">{formatFare(transit!.fare)}</div>
-            </div>
-          </div>
-
-          {transit?.steps && <RouteSteps steps={transit.steps} />}
+        <div className="px-4 pb-4 border-t border-gray-100 pt-3 space-y-2">
+          <p className="text-xs text-gray-400 mb-1">경로 선택 (클릭하면 지도에 표시)</p>
+          <RouteDetailCard
+            icon="🚇"
+            label="지하철 최적"
+            route={transit!}
+            active={selectedRouteType === 'transit'}
+            onClick={() => onSelect(candidate.id, 'transit')}
+          />
+          {bus && (
+            <RouteDetailCard
+              icon="🚌"
+              label="버스 우선"
+              route={bus}
+              active={selectedRouteType === 'bus'}
+              onClick={() => onSelect(candidate.id, 'bus')}
+            />
+          )}
+          {(selectedRouteType === 'transit' ? transit : bus)?.steps && (
+            <RouteSteps steps={(selectedRouteType === 'transit' ? transit : bus)!.steps!} />
+          )}
         </div>
       )}
     </div>

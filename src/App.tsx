@@ -37,6 +37,7 @@ export default function App() {
     })),
   )
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null)
+  const [selectedRouteType, setSelectedRouteType] = useState<'transit' | 'bus'>('transit')
   const [activePlaceCategories, setActivePlaceCategories] = useState<Set<PlaceCategory>>(new Set())
   const [loadingCategory, setLoadingCategory] = useState<PlaceCategory | null>(null)
   const [nearbyPlaces, setNearbyPlaces] = useState<NearbyPlace[]>([])
@@ -203,6 +204,7 @@ export default function App() {
           destination={destination}
           candidates={candidates}
           selectedCandidateId={selectedCandidateId}
+          selectedRouteType={selectedRouteType}
           nearbyPlaces={allNearbyPlaces}
           onDistrictClick={handleDistrictClick}
         />
@@ -214,7 +216,12 @@ export default function App() {
           destination={destination}
           candidates={candidates}
           selectedCandidateId={selectedCandidateId}
-          onSelectCandidate={(id) => setSelectedCandidateId((prev) => prev === id ? null : id)}
+          selectedRouteType={selectedRouteType}
+          onSelectCandidate={(id, routeType) => {
+            const isSameIdAndType = selectedCandidateId === id && selectedRouteType === routeType
+            setSelectedCandidateId(isSameIdAndType ? null : id)
+            if (!isSameIdAndType) setSelectedRouteType(routeType)
+          }}
           onDestinationSelect={handleDestinationSelect}
           onCandidateSelect={handleCandidateSelect}
           onRemoveCandidate={handleRemoveCandidate}

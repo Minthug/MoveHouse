@@ -34,6 +34,7 @@ interface UseLeafletMapProps {
   destination: Destination | null
   candidates: CandidateLocation[]
   selectedCandidateId: string | null
+  selectedRouteType: 'transit' | 'bus'
   nearbyPlaces: NearbyPlace[]
   onDistrictClick: (name: string, lat: number, lng: number) => void
   showSubway: boolean
@@ -45,6 +46,7 @@ export function useLeafletMap({
   destination,
   candidates,
   selectedCandidateId,
+  selectedRouteType,
   nearbyPlaces,
   onDistrictClick,
   showSubway,
@@ -353,7 +355,7 @@ export function useLeafletMap({
     if (!selectedCandidateId) return
 
     const candidate = candidates.find((c) => c.id === selectedCandidateId)
-    const steps = candidate?.routes?.transit?.steps
+    const steps = candidate?.routes?.[selectedRouteType]?.steps ?? candidate?.routes?.transit?.steps
     if (!steps) return
 
     const group = L.layerGroup()
@@ -384,7 +386,7 @@ export function useLeafletMap({
     if (allCoords.length > 1) {
       map.fitBounds(L.latLngBounds(allCoords), { padding: [40, 40] })
     }
-  }, [selectedCandidateId, candidates])
+  }, [selectedCandidateId, selectedRouteType, candidates])
 
   // ── Nearby place markers ─────────────────────────────────────────────
   useEffect(() => {
