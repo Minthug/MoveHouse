@@ -7,6 +7,8 @@ import type { AppMode, CandidateLocation, Destination } from '../types'
 import { PLACE_CATEGORIES } from '../services/places'
 import type { PlaceCategory, NearbyPlace } from '../services/places'
 
+const MAX_CANDIDATES = 5
+
 function KeywordPlaceSearch({
   onSearch,
   customPlaces,
