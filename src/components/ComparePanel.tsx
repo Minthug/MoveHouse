@@ -6,8 +6,91 @@ import CompareAnalysis from './CompareAnalysis'
 import type { AppMode, CandidateLocation, Destination } from '../types'
 import { PLACE_CATEGORIES } from '../services/places'
 import type { PlaceCategory, NearbyPlace } from '../services/places'
+import { apiUrl } from '../lib/api'
+import proj4 from 'proj4'
+
+proj4.defs('EPSG:5179', '+proj=tmerc +lat_0=38 +lon_0=127.5 +k=0.9999 +x_0=1000000 +y_0=2000000 +ellps=GRS80 +units=m +no_defs')
 
 const MAX_CANDIDATES = 5
+
+function ListingUrlInput({ onAddressFound }: { onAddressFound: (lat: number, lng: number, address: string) => void }) {
+  const [url, setUrl] = useState('')
+  const [status, setStatus] = useState<'idle' | 'loading' | 'hint' | 'error'>('idle')
+  const [message, setMessage] = useState('')
+
+  async function handleParse() {
+    const trimmed = url.trim()
+    if (!trimmed) return
+    setStatus('loading')
+    setMessage('')
+    try {
+      const res = await fetch(apiUrl(`/api/parse-listing?url=${encodeURIComponent(trimmed)}`))
+      const data = await res.json()
+
+      if (data.success && data.address) {
+        // 주소 → Juso API로 좌표 변환
+        const jusoRes = await fetch(apiUrl(`/api/juso?keyword=${encodeURIComponent(data.address)}&currentPage=1&countPerPage=1`))
+        const jusoData = await jusoRes.json()
+        const juso = jusoData?.results?.juso?.[0]
+        if (juso) {
+          const coordRes = await fetch(apiUrl(`/api/juso-coord?admCd=${juso.admCd}&rnMgtSn=${juso.rnMgtSn}&udrtYn=${juso.udrtYn}&buldMnnm=${juso.buldMnnm}&buldSlno=${juso.buldSlno}`))
+          const coordData = await coordRes.json()
+          const coord = coordData?.results?.juso?.[0]
+          if (coord?.entX && coord?.entY) {
+            const [lng, lat] = proj4('EPSG:5179', 'WGS84', [parseFloat(coord.entX), parseFloat(coord.entY)])
+            const label = juso.bdNm ? `${juso.roadAddr} (${juso.bdNm})` : juso.roadAddr
+            onAddressFound(lat, lng, label)
+            setUrl('')
+            if (data.precision === 'neighborhood') {
+              setStatus('hint')
+              setMessage('동 수준 주소만 가져올 수 있어요. 위치가 정확하지 않을 수 있어요.')
+            } else {
+              setStatus('idle')
+            }
+            return
+          }
+        }
+        setStatus('error')
+        setMessage(`주소를 찾았지만 좌표 변환 실패: ${data.address}`)
+      } else if (data.hint) {
+        setStatus('hint')
+        setMessage(`직방은 "${data.hint}" 지역만 확인됐어요. 주소를 직접 검색해주세요.`)
+      } else {
+        setStatus('error')
+        setMessage(data.error ?? '주소를 가져오지 못했어요')
+      }
+    } catch {
+      setStatus('error')
+      setMessage('네트워크 오류')
+    }
+  }
+
+  return (
+    <div className="space-y-1">
+      <p className="text-xs text-gray-400">또는 매물 URL 붙여넣기 <span className="text-gray-300">(직방·다방·피터팬)</span></p>
+      <div className="flex gap-2">
+        <input
+          type="text"
+          value={url}
+          onChange={(e) => { setUrl(e.target.value); setStatus('idle') }}
+          onKeyDown={(e) => e.key === 'Enter' && handleParse()}
+          placeholder="https://www.peterpanz.com/house/..."
+          className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-300"
+        />
+        <button
+          onClick={handleParse}
+          disabled={status === 'loading' || !url.trim()}
+          className="px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-xs transition-colors disabled:opacity-50"
+        >
+          {status === 'loading' ? '...' : '확인'}
+        </button>
+      </div>
+      {status !== 'idle' && status !== 'loading' && (
+        <p className={`text-xs px-1 ${status === 'error' ? 'text-red-400' : 'text-yellow-600'}`}>{message}</p>
+      )}
+    </div>
+  )
+}
 
 function KeywordPlaceSearch({
   onSearch,
@@ -208,10 +291,13 @@ export default function ComparePanel({
           canAddCandidate={!!destination && candidates.length < MAX_CANDIDATES}
         />
         {mode === 'add-candidate' && candidates.length < MAX_CANDIDATES && (
-          <SearchBar
-            placeholder="후보지 주소 검색"
-            onSelect={onCandidateSelect}
-          />
+          <div className="space-y-2 mt-2">
+            <SearchBar
+              placeholder="후보지 주소 검색"
+              onSelect={onCandidateSelect}
+            />
+            <ListingUrlInput onAddressFound={onCandidateSelect} />
+          </div>
         )}
         {candidates.length >= MAX_CANDIDATES && (
           <p className="text-xs text-gray-400 mt-2 text-center">
