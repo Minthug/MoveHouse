@@ -35,6 +35,7 @@ export interface CandidateLocation extends Location {
   routes: CandidateRoutes
   loading: boolean
   error?: string
+  memo?: string
 }
 
 export type AppMode = 'set-destination' | 'add-candidate'

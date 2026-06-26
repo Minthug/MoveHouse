@@ -1,3 +1,4 @@
+import { useState, useRef } from 'react'
 import { calcMonthlyFare } from '../services/directions'
 import type { CandidateLocation, RouteResult, RouteStep } from '../types'
 
@@ -130,10 +131,14 @@ interface Props {
   selectedRouteType: 'transit' | 'bus'
   onSelect: (id: string, routeType: 'transit' | 'bus') => void
   onRemove: (id: string) => void
+  onMemoChange: (id: string, memo: string) => void
 }
 
-export default function LocationCard({ candidate, index, selected, selectedRouteType, onSelect, onRemove }: Props) {
+export default function LocationCard({ candidate, index, selected, selectedRouteType, onSelect, onRemove, onMemoChange }: Props) {
   const color = CANDIDATE_COLORS[index % CANDIDATE_COLORS.length]
+  const [memoOpen, setMemoOpen] = useState(false)
+  const [memoValue, setMemoValue] = useState(candidate.memo ?? '')
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
   const { transit, bus } = candidate.routes
   const hasBus = bus != null  // null(조회완료/차이없음)과 RouteResult 구분
   const activeRoute = selected ? (selectedRouteType === 'bus' && hasBus ? bus! : transit) : transit
@@ -195,6 +200,31 @@ export default function LocationCard({ candidate, index, selected, selectedRoute
       {!candidate.loading && candidate.error && (
         <p className="text-xs text-red-400 px-4 pb-4">{candidate.error}</p>
       )}
+
+      {/* 메모 */}
+      <div className="px-4 pb-3 border-t border-gray-50">
+        <button
+          onClick={() => {
+            setMemoOpen((v) => !v)
+            if (!memoOpen) setTimeout(() => textareaRef.current?.focus(), 50)
+          }}
+          className="flex items-center gap-1.5 mt-2 text-xs text-gray-400 hover:text-gray-600 transition-colors"
+        >
+          <span>📝</span>
+          {memoOpen ? '메모 닫기' : (memoValue ? memoValue.slice(0, 20) + (memoValue.length > 20 ? '…' : '') : '메모 추가')}
+        </button>
+        {memoOpen && (
+          <textarea
+            ref={textareaRef}
+            value={memoValue}
+            onChange={(e) => setMemoValue(e.target.value)}
+            onBlur={() => onMemoChange(candidate.id, memoValue)}
+            placeholder="이 후보지에 대한 메모를 입력하세요"
+            rows={3}
+            className="mt-2 w-full text-xs border border-gray-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-blue-200 text-gray-700 placeholder-gray-300"
+          />
+        )}
+      </div>
 
       {/* 상세 경로 — 선택됐을 때만 */}
       {selected && hasRoute && (

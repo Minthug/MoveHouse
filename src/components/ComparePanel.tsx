@@ -78,6 +78,7 @@ interface Props {
   customPlaces: NearbyPlace[]
   onKeywordSearch: (keyword: string) => void
   onClearCustomPlaces: () => void
+  onMemoChange: (id: string, memo: string) => void
 }
 
 export default function ComparePanel({
@@ -99,6 +100,7 @@ export default function ComparePanel({
   customPlaces,
   onKeywordSearch,
   onClearCustomPlaces,
+  onMemoChange,
 }: Props) {
   const [showAnalysis, setShowAnalysis] = useState(false)
   const readyCandidates = candidates.filter((c) => c.routes.transit && !c.loading)
@@ -241,6 +243,7 @@ export default function ComparePanel({
             selectedRouteType={selectedRouteType}
             onSelect={onSelectCandidate}
             onRemove={onRemoveCandidate}
+            onMemoChange={onMemoChange}
           />
         ))}
 

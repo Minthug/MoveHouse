@@ -198,6 +198,10 @@ export default function App() {
     }
   }
 
+  function handleMemoChange(id: string, memo: string) {
+    setCandidates((prev) => prev.map((c) => c.id === id ? { ...c, memo } : c))
+  }
+
   function handleReset() {
     setDestination(null)
     setCandidates([])
@@ -244,6 +248,7 @@ export default function App() {
           customPlaces={customPlaces}
           onKeywordSearch={handleKeywordSearch}
           onClearCustomPlaces={() => setCustomPlaces([])}
+          onMemoChange={handleMemoChange}
         />
       </div>
     </div>
