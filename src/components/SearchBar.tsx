@@ -52,6 +52,10 @@ async function fetchCoord(item: JusoItem): Promise<{ lat: number; lng: number } 
   }
 }
 
+function isListingUrl(q: string) {
+  return /^https?:\/\/(www\.)?(peterpanz\.com|dabangapp\.com|redirect\.dabangapp\.com|zigbang\.com|sp\.zigbang\.com)/.test(q)
+}
+
 export default function SearchBar({ placeholder, onSelect }: Props) {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<JusoItem[]>([])
@@ -60,9 +64,64 @@ export default function SearchBar({ placeholder, onSelect }: Props) {
   const [error, setError] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
 
+  async function searchByUrl(url: string) {
+    setLoading(true)
+    setError('')
+    try {
+      const res = await fetch(apiUrl(`/api/parse-listing?url=${encodeURIComponent(url)}`))
+      const data = await res.json()
+
+      if (data.success && data.lat != null && data.lng != null) {
+        // 다방 redirect URL: 좌표 직접 반환
+        onSelect(data.lat, data.lng, data.label ?? '다방 매물')
+        setQuery('')
+        return
+      }
+
+      if (data.success && data.address) {
+        // 피터팬 등: 주소 → Juso → 좌표 변환
+        const jusoRes = await fetch(apiUrl(`/api/juso?keyword=${encodeURIComponent(data.address)}&currentPage=1&countPerPage=1`))
+        const jusoData = await jusoRes.json()
+        const juso = jusoData?.results?.juso?.[0]
+        if (juso) {
+          const coordRes = await fetch(apiUrl(`/api/juso-coord?admCd=${juso.admCd}&rnMgtSn=${juso.rnMgtSn}&udrtYn=${juso.udrtYn}&buldMnnm=${juso.buldMnnm}&buldSlno=${juso.buldSlno}`))
+          const coordData = await coordRes.json()
+          const coord = coordData?.results?.juso?.[0]
+          if (coord?.entX && coord?.entY) {
+            const { lat, lng } = utmkToWgs84(parseFloat(coord.entX), parseFloat(coord.entY))
+            const label = juso.bdNm ? `${juso.roadAddr} (${juso.bdNm})` : juso.roadAddr
+            onSelect(lat, lng, label)
+            setQuery('')
+            if (data.precision === 'neighborhood') setError('동 수준 주소예요. 위치가 정확하지 않을 수 있어요.')
+            return
+          }
+        }
+        setError(`주소를 찾았지만 좌표 변환 실패: ${data.address}`)
+        return
+      }
+
+      if (data.hint) {
+        setError(`직방은 "${data.hint}" 지역만 확인됐어요. 주소를 직접 검색해주세요.`)
+        return
+      }
+
+      setError(data.error ?? '주소를 가져오지 못했어요')
+    } catch {
+      setError('네트워크 오류')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   async function search() {
     const q = query.trim()
     if (!q) return
+
+    if (isListingUrl(q)) {
+      await searchByUrl(q)
+      return
+    }
+
     setLoading(true)
     setError('')
     try {
