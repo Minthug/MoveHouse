@@ -66,7 +66,7 @@ export default function SearchBar({ placeholder, onSelect }: Props) {
 
   async function searchByUrl(url: string) {
     setLoading(true)
-    setError('')
+    setError('URL에서 주소 가져오는 중...')
     try {
       const res = await fetch(apiUrl(`/api/parse-listing?url=${encodeURIComponent(url)}`))
       const data = await res.json()
@@ -75,6 +75,7 @@ export default function SearchBar({ placeholder, onSelect }: Props) {
         // 다방 redirect URL: 좌표 직접 반환
         onSelect(data.lat, data.lng, data.label ?? '다방 매물')
         setQuery('')
+        setError('')
         return
       }
 
@@ -92,11 +93,11 @@ export default function SearchBar({ placeholder, onSelect }: Props) {
             const label = juso.bdNm ? `${juso.roadAddr} (${juso.bdNm})` : juso.roadAddr
             onSelect(lat, lng, label)
             setQuery('')
-            if (data.precision === 'neighborhood') setError('동 수준 주소예요. 위치가 정확하지 않을 수 있어요.')
+            setError(data.precision === 'neighborhood' ? '동 수준 주소예요. 위치가 정확하지 않을 수 있어요.' : '')
             return
           }
         }
-        setError(`주소를 찾았지만 좌표 변환 실패: ${data.address}`)
+        setError(`주소 좌표 변환 실패: ${data.address}`)
         return
       }
 
@@ -106,18 +107,20 @@ export default function SearchBar({ placeholder, onSelect }: Props) {
       }
 
       setError(data.error ?? '주소를 가져오지 못했어요')
-    } catch {
-      setError('네트워크 오류')
+    } catch (e) {
+      setError(`오류: ${String(e)}`)
     } finally {
       setLoading(false)
     }
   }
 
   async function search() {
-    const q = query.trim()
+    // DOM에서 직접 읽어 state timing 이슈 방지
+    const q = (inputRef.current?.value ?? query).trim()
     if (!q) return
 
     if (isListingUrl(q)) {
+      setQuery(q)
       await searchByUrl(q)
       return
     }
@@ -197,7 +200,11 @@ export default function SearchBar({ placeholder, onSelect }: Props) {
       </div>
 
       {error && !open && (
-        <p className="text-xs text-red-400 mt-1 px-1">{error}</p>
+        <p className={`text-xs mt-1 px-1 ${
+          error.includes('중...') ? 'text-blue-400' :
+          error.includes('수준') || error.includes('직방') ? 'text-yellow-500' :
+          'text-red-400'
+        }`}>{error}</p>
       )}
 
       {open && results.length > 0 && (
