@@ -24,22 +24,34 @@ async function parsePeterpanz(url: string) {
   return decodeUnicode(m)
 }
 
-async function parseDabang(url: string) {
-  // redirect URL이면 실제 방 URL로 이동
-  let target = url
+async function parseDabang(url: string): Promise<{ lat: number; lng: number; label: string } | null> {
+  const ua = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36'
+
   if (url.includes('redirect.dabangapp.com')) {
-    const res = await fetch(url, {
-      headers: { 'User-Agent': 'Mozilla/5.0' },
-      redirect: 'follow',
-    })
-    target = res.url
+    // redirect URL → 최종 URL에 m_lat/m_lng 좌표 포함
+    const res = await fetch(url, { headers: { 'User-Agent': ua }, redirect: 'follow' })
+    const finalUrl = new URL(res.url)
+    const lat = parseFloat(finalUrl.searchParams.get('m_lat') ?? '')
+    const lng = parseFloat(finalUrl.searchParams.get('m_lng') ?? '')
+    if (!isNaN(lat) && !isNaN(lng)) {
+      // 라벨은 방 상세 og:title에서 추출
+      const detailId = finalUrl.searchParams.get('detail_id')
+      let label = '다방 매물'
+      if (detailId) {
+        const roomHtml = await fetchHtml(`https://www.dabangapp.com/room/${detailId}`)
+        const m = roomHtml.match(/og:title[^>]*content="([^"]+)"/)?.[1]
+        if (m) label = m.replace(/^\[다방\]\s*/, '').split(',')[0].trim()
+      }
+      return { lat, lng, label }
+    }
   }
-  const html = await fetchHtml(target)
-  // og:title → "[다방] 서울특별시 동작구 신대방동, 원룸 월세 300/33"
+
+  // 직접 room URL인 경우 → og:title에서 주소 파싱 (동 수준)
+  const html = await fetchHtml(url)
   const m = html.match(/og:title[^>]*content="([^"]+)"/)?.[1]
   if (!m) return null
-  const addr = m.replace(/^\[다방\]\s*/, '').split(',')[0].trim()
-  return addr || null
+  const label = m.replace(/^\[다방\]\s*/, '').split(',')[0].trim()
+  return label ? { lat: NaN, lng: NaN, label } : null
 }
 
 async function parseZigbang(url: string) {
@@ -68,10 +80,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (url.includes('dabangapp.com') || url.includes('dabang')) {
-      const address = await parseDabang(url)
-      if (!address) return res.json({ success: false, platform: 'dabang' })
-      // 다방은 og:title에서 동 수준 주소만 추출 가능
-      return res.json({ success: true, platform: 'dabang', address, precision: 'neighborhood' })
+      const result = await parseDabang(url)
+      if (!result) return res.json({ success: false, platform: 'dabang' })
+      if (!isNaN(result.lat)) {
+        // 정확한 좌표를 직접 반환 (redirect URL에서 추출)
+        return res.json({ success: true, platform: 'dabang', lat: result.lat, lng: result.lng, label: result.label })
+      }
+      // 직접 room URL은 동 수준 주소만 가능
+      return res.json({ success: true, platform: 'dabang', address: result.label, precision: 'neighborhood' })
     }
 
     if (url.includes('zigbang.com') || url.includes('zigbang')) {

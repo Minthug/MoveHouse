@@ -27,8 +27,13 @@ function ListingUrlInput({ onAddressFound }: { onAddressFound: (lat: number, lng
       const res = await fetch(apiUrl(`/api/parse-listing?url=${encodeURIComponent(trimmed)}`))
       const data = await res.json()
 
-      if (data.success && data.address) {
-        // 주소 → Juso API로 좌표 변환
+      if (data.success && data.lat != null && data.lng != null) {
+        // 다방 redirect URL: 좌표를 직접 반환하는 경우
+        onAddressFound(data.lat, data.lng, data.label ?? '다방 매물')
+        setUrl('')
+        setStatus('idle')
+      } else if (data.success && data.address) {
+        // 주소 문자열 → Juso API로 좌표 변환
         const jusoRes = await fetch(apiUrl(`/api/juso?keyword=${encodeURIComponent(data.address)}&currentPage=1&countPerPage=1`))
         const jusoData = await jusoRes.json()
         const juso = jusoData?.results?.juso?.[0]
