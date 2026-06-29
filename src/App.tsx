@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
-import MapView from './components/MapView'
+import SeoulMap from './components/SeoulMap'
 import ComparePanel from './components/ComparePanel'
 import { useDirections } from './hooks/useDirections'
 import { fetchNearbyPlaces, searchPlacesByKeyword, clearOverpassCache } from './services/places'
@@ -234,13 +234,11 @@ export default function App() {
   return (
     <div className="flex h-screen w-full overflow-hidden">
       <div className="flex-1 relative">
-        <MapView
+        <SeoulMap
           mode={mode}
           destination={destination}
           candidates={candidates}
           selectedCandidateId={selectedCandidateId}
-          selectedRouteType={selectedRouteType}
-          nearbyPlaces={allNearbyPlaces}
           onDistrictClick={handleDistrictClick}
         />
       </div>
