@@ -71,6 +71,7 @@ interface Props {
   onCandidateSelect: (lat: number, lng: number, address: string) => void
   onRemoveCandidate: (id: string) => void
   onReset: () => void
+  onShare: () => void
   activePlaceCategories: Set<PlaceCategory>
   loadingCategory: PlaceCategory | null
   onToggleCategory: (category: PlaceCategory) => void
@@ -92,6 +93,7 @@ export default function ComparePanel({
   onCandidateSelect,
   onRemoveCandidate,
   onReset,
+  onShare,
   selectedRouteType,
   activePlaceCategories,
   loadingCategory,
@@ -127,17 +129,28 @@ export default function ComparePanel({
             목적지와 이사 후보지를 찍으면 교통 시간을 한눈에 비교해드려요
           </p>
         </div>
-        {(destination || candidates.length > 0) && (
-          <button
-            onClick={() => {
-              if (window.confirm('목적지와 후보지를 모두 초기화할까요?')) onReset()
-            }}
-            className="text-xs text-gray-300 hover:text-red-400 transition-colors mt-0.5 shrink-0"
-            title="전체 초기화"
-          >
-            초기화
-          </button>
-        )}
+        <div className="flex items-center gap-2 mt-0.5 shrink-0">
+          {destination && candidates.length > 0 && (
+            <button
+              onClick={onShare}
+              className="text-xs text-blue-400 hover:text-blue-600 transition-colors font-medium"
+              title="비교 결과 공유"
+            >
+              링크 공유
+            </button>
+          )}
+          {(destination || candidates.length > 0) && (
+            <button
+              onClick={() => {
+                if (window.confirm('목적지와 후보지를 모두 초기화할까요?')) onReset()
+              }}
+              className="text-xs text-gray-300 hover:text-red-400 transition-colors"
+              title="전체 초기화"
+            >
+              초기화
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Destination section */}

@@ -5,6 +5,7 @@ import { useDirections } from './hooks/useDirections'
 import { fetchNearbyPlaces, searchPlacesByKeyword, clearOverpassCache } from './services/places'
 import type { PlaceCategory, NearbyPlace } from './services/places'
 import type { AppMode, CandidateLocation, Destination } from './types'
+import { encodeShare, decodeShare } from './lib/share'
 
 const LABELS = ['A', 'B', 'C', 'D', 'E']
 
@@ -27,15 +28,23 @@ function writeLocal(key: string, value: unknown) {
 
 export default function App() {
   const [mode, setMode] = useState<AppMode>('set-destination')
-  const [destination, setDestination] = useState<Destination | null>(
-    () => readLocal('commute-destination', null),
-  )
-  const [candidates, setCandidates] = useState<CandidateLocation[]>(
-    () => readLocal<CandidateLocation[]>('commute-candidates', []).map((c) => ({
+  const [destination, setDestination] = useState<Destination | null>(() => {
+    const shared = decodeShare()
+    if (shared) return { id: makeId(), ...shared.dest }
+    return readLocal('commute-destination', null)
+  })
+  const [candidates, setCandidates] = useState<CandidateLocation[]>(() => {
+    const shared = decodeShare()
+    if (shared) {
+      return shared.cands.map((c) => ({
+        id: makeId(), ...c, loading: false,
+      }))
+    }
+    return readLocal<CandidateLocation[]>('commute-candidates', []).map((c) => ({
       ...c,
       loading: !c.routes.transit && !c.error,
-    })),
-  )
+    }))
+  })
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null)
   const [selectedRouteType, setSelectedRouteType] = useState<'transit' | 'bus'>('transit')
   const [activePlaceCategories, setActivePlaceCategories] = useState<Set<PlaceCategory>>(new Set())
@@ -209,6 +218,17 @@ export default function App() {
     setMode('set-destination')
     localStorage.removeItem('commute-destination')
     localStorage.removeItem('commute-candidates')
+    window.history.replaceState(null, '', window.location.pathname)
+  }
+
+  function handleShare() {
+    if (!destination || candidates.length === 0) return
+    const url = encodeShare(destination, candidates)
+    navigator.clipboard.writeText(url).then(() => {
+      alert('공유 링크가 클립보드에 복사됐어요!')
+    }).catch(() => {
+      prompt('아래 링크를 복사하세요:', url)
+    })
   }
 
   return (
@@ -241,6 +261,7 @@ export default function App() {
           onCandidateSelect={handleCandidateSelect}
           onRemoveCandidate={handleRemoveCandidate}
           onReset={handleReset}
+          onShare={handleShare}
           activePlaceCategories={activePlaceCategories}
           loadingCategory={loadingCategory}
           onToggleCategory={handleToggleCategory}
