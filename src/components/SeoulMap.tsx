@@ -320,17 +320,49 @@ export default function SeoulMap({ mode, destination, candidates, selectedCandid
 
         {/* 지하철 노선도 */}
         {isGu && SUBWAY_LINES.filter((l) => visibleLines.has(l.id)).map((line) =>
-          line.paths.map((path, pi) => {
-            const pts = path
-              .map(([lat, lng]) => `${LNG_TO_SVG(lng).toFixed(1)},${LAT_TO_SVG(lat).toFixed(1)}`)
+          line.stations.map((segment, si) => {
+            const pts = segment
+              .map((st) => `${LNG_TO_SVG(st.lng).toFixed(1)},${LAT_TO_SVG(st.lat).toFixed(1)}`)
               .join(' L ')
             return (
-              <g key={`${line.id}-${pi}`} style={{ pointerEvents: 'none' }}>
+              <g key={`${line.id}-${si}-path`} style={{ pointerEvents: 'none' }}>
                 <path d={`M ${pts}`} fill="none" stroke="#fff" strokeWidth={5 * mapScale} strokeLinecap="round" strokeLinejoin="round" opacity={0.7} />
                 <path d={`M ${pts}`} fill="none" stroke={line.color} strokeWidth={3.5 * mapScale} strokeLinecap="round" strokeLinejoin="round" opacity={0.9} />
               </g>
             )
           })
+        )}
+
+        {/* 지하철 역명 마커 */}
+        {isGu && SUBWAY_LINES.filter((l) => visibleLines.has(l.id)).map((line) =>
+          line.stations.map((segment, si) =>
+            segment.map((st, stIdx) => {
+              const sx = LNG_TO_SVG(st.lng)
+              const sy = LAT_TO_SVG(st.lat)
+              const stR = 2.8 * mapScale
+              const fs = 6.5 * mapScale
+              return (
+                <g key={`${line.id}-${si}-${stIdx}`} style={{ pointerEvents: 'none' }}>
+                  <circle cx={sx} cy={sy} r={stR + 1.5 * mapScale} fill="#fff" />
+                  <circle cx={sx} cy={sy} r={stR} fill={line.color} />
+                  <text
+                    x={sx}
+                    y={sy - (stR + 2.5 * mapScale)}
+                    textAnchor="middle"
+                    fontSize={fs}
+                    fontWeight={700}
+                    fill="#222"
+                    stroke="#fff"
+                    strokeWidth={2 * mapScale}
+                    paintOrder="stroke"
+                    letterSpacing="-0.2"
+                  >
+                    {st.name}
+                  </text>
+                </g>
+              )
+            })
+          )
         )}
 
         {/* 경로선 — 토글된 모든 후보지 */}
@@ -525,28 +557,25 @@ export default function SeoulMap({ mode, destination, candidates, selectedCandid
         </div>
       )}
 
-      {/* 지하철 노선 토글 버튼 바 */}
+      {/* 지하철 노선 토글 버튼 — 왼쪽 세로 컬럼 */}
       {isGu && (
-        <div className="absolute bottom-16 left-0 right-0 z-10 flex justify-center px-3 pb-1">
-          <div className="flex gap-1.5 overflow-x-auto scrollbar-none bg-white/90 backdrop-blur-sm rounded-full px-3 py-1.5 shadow-sm">
-            {SUBWAY_LINES.map((line) => {
-              const on = visibleLines.has(line.id)
-              return (
-                <button
-                  key={line.id}
-                  onClick={() => toggleLine(line.id)}
-                  className="shrink-0 px-2.5 py-1 rounded-full text-[11px] font-bold transition-all"
-                  style={{
-                    background: on ? line.color : '#f3f4f6',
-                    color: on ? '#fff' : '#6b7280',
-                    border: `1.5px solid ${on ? line.color : '#e5e7eb'}`,
-                  }}
-                >
-                  {line.name}
-                </button>
-              )
-            })}
-          </div>
+        <div className="absolute left-3 top-14 z-10 flex flex-col gap-1 bg-white/90 backdrop-blur-sm rounded-xl px-2 py-2 shadow-sm max-h-[calc(100%-120px)] overflow-y-auto scrollbar-none">
+          {SUBWAY_LINES.map((line) => {
+            const on = visibleLines.has(line.id)
+            return (
+              <button
+                key={line.id}
+                onClick={() => toggleLine(line.id)}
+                className="shrink-0 px-2.5 py-1 rounded-lg text-[11px] font-bold text-left transition-all whitespace-nowrap"
+                style={{
+                  background: on ? line.color : 'transparent',
+                  color: on ? '#fff' : '#6b7280',
+                }}
+              >
+                {line.name}
+              </button>
+            )
+          })}
         </div>
       )}
 
