@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { AppMode, CandidateLocation, Destination } from '../types'
+import { PLACE_CATEGORIES } from '../services/places'
+import type { NearbyPlace } from '../services/places'
 
 // Least-squares calibration: SVG centroid ↔ WGS84 (25구 기준)
 const SVG_TO_LNG = (cx: number) => cx * 0.00040091 + 126.774831
@@ -65,10 +67,11 @@ interface Props {
   candidates: CandidateLocation[]
   selectedCandidateId: string | null
   selectedRouteType: 'transit' | 'bus'
+  nearbyPlaces: NearbyPlace[]
   onDistrictClick: (name: string, lat: number, lng: number) => void
 }
 
-export default function SeoulMap({ mode, destination, candidates, selectedCandidateId, selectedRouteType, onDistrictClick }: Props) {
+export default function SeoulMap({ mode, destination, candidates, selectedCandidateId, selectedRouteType, nearbyPlaces, onDistrictClick }: Props) {
   const [guData, setGuData] = useState<SeoulData | null>(null)
   const [dongData, setDongData] = useState<DongSeoulData | null>(null)
   const [viewMode, setViewMode] = useState<'gu' | 'dong'>('gu')
@@ -292,6 +295,24 @@ export default function SeoulMap({ mode, destination, candidates, selectedCandid
                 strokeLinejoin="round"
                 opacity={isWalk ? 0.7 : 0.9}
               />
+            </g>
+          )
+        })}
+
+        {/* 편의시설 마커 */}
+        {nearbyPlaces.map((place) => {
+          const x = LNG_TO_SVG(place.lng)
+          const y = LAT_TO_SVG(place.lat)
+          if (x < -50 || x > 1050 || y < -50 || y > 850) return null
+          const cfg = place.category === 'CUSTOM'
+            ? { color: '#6b7280', emoji: '📍' }
+            : PLACE_CATEGORIES[place.category as keyof typeof PLACE_CATEGORIES]
+          return (
+            <g key={place.id} transform={`translate(${x.toFixed(1)},${y.toFixed(1)})`} style={{ pointerEvents: 'none' }}>
+              <circle r={9} fill={cfg.color} stroke="#fff" strokeWidth={1.5} opacity={0.9} />
+              <text textAnchor="middle" dominantBaseline="middle" fontSize={9} opacity={0.95}>
+                {cfg.emoji}
+              </text>
             </g>
           )
         })}

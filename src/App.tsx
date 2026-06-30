@@ -238,6 +238,7 @@ export default function App() {
           candidates={candidates}
           selectedCandidateId={selectedCandidateId}
           selectedRouteType={selectedRouteType}
+          nearbyPlaces={allNearbyPlaces}
           onDistrictClick={handleDistrictClick}
         />
       </div>
