@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import type { AppMode, CandidateLocation, Destination } from '../types'
 import { PLACE_CATEGORIES } from '../services/places'
 import type { NearbyPlace } from '../services/places'
@@ -110,6 +110,30 @@ export default function SeoulMap({ mode, destination, candidates, selectedCandid
     rafRef.current = requestAnimationFrame(step)
   }
 
+  // 후보지별 경로 표시 토글 (candidateId → visible)
+  const [routeVisible, setRouteVisible] = useState<Set<string>>(new Set())
+
+  const toggleRoute = useCallback((id: string) => {
+    setRouteVisible((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }, [])
+
+  // 경로 데이터가 생기면 자동으로 visible 목록에 추가
+  useEffect(() => {
+    setRouteVisible((prev) => {
+      const next = new Set(prev)
+      candidates.forEach((c) => { if (c.routes.transit?.steps?.length) next.add(c.id) })
+      // 삭제된 후보지 제거
+      const ids = new Set(candidates.map((c) => c.id))
+      prev.forEach((id) => { if (!ids.has(id)) next.delete(id) })
+      return next
+    })
+  }, [candidates])
+
   // 경로 선택 시 전체 뷰로 줌아웃해서 경로가 보이도록
   useEffect(() => {
     if (selectedCandidateId) {
@@ -154,14 +178,17 @@ export default function SeoulMap({ mode, destination, candidates, selectedCandid
   const isGu = viewMode === 'gu'
   const dongs = isGu ? [] : (dongData?.dong.filter((d) => d.gu === selGu?.code) ?? [])
 
-  // 선택된 후보지 경로선 계산
-  const routeSteps = (() => {
-    if (!selectedCandidateId) return []
-    const cand = candidates.find((c) => c.id === selectedCandidateId)
-    if (!cand) return []
-    const route = (selectedRouteType === 'bus' ? cand.routes.bus : null) ?? cand.routes.transit
-    return route?.steps?.filter((s) => s.coords && s.coords.length >= 2) ?? []
-  })()
+  // 표시할 경로선: 토글된 모든 후보지의 steps 합산
+  const allRouteSegments = candidates.flatMap((c, i) => {
+    if (!routeVisible.has(c.id)) return []
+    const route = (selectedRouteType === 'bus' ? c.routes.bus : null) ?? c.routes.transit
+    const steps = route?.steps?.filter((s) => s.coords && s.coords.length >= 2) ?? []
+    return steps.map((s) => ({
+      ...s,
+      candidateId: c.id,
+      candidateColor: CANDIDATE_COLORS[i % CANDIDATE_COLORS.length],
+    }))
+  })
 
   // Destination district info
   const destGu = destination ? extractGuName(destination.name) ?? destination.name : null
@@ -279,26 +306,29 @@ export default function SeoulMap({ mode, destination, candidates, selectedCandid
             </g>
           ))}
 
-        {/* 경로선 (선택된 후보지) */}
-        {routeSteps.map((step, i) => {
-          const pts = step.coords!
+        {/* 경로선 — 토글된 모든 후보지 */}
+        {isGu && allRouteSegments.map((seg, i) => {
+          const pts = seg.coords!
             .map(([lat, lng]) => `${LNG_TO_SVG(lng).toFixed(1)},${LAT_TO_SVG(lat).toFixed(1)}`)
             .join(' L ')
-          const isWalk = step.type === 'walk'
+          const isWalk = seg.type === 'walk'
+          const dimmed = selectedCandidateId !== null && selectedCandidateId !== seg.candidateId
+          const lineColor = isWalk ? '#9ca3af' : (seg.color ?? seg.candidateColor)
+          const lw = mapScale * (isWalk ? 4 : 7)
           return (
-            <g key={i} style={{ pointerEvents: 'none' }}>
+            <g key={i} style={{ pointerEvents: 'none' }} opacity={dimmed ? 0.25 : 1}>
               {!isWalk && (
-                <path d={`M ${pts}`} fill="none" stroke="#fff" strokeWidth={10} strokeLinecap="round" strokeLinejoin="round" opacity={0.6} />
+                <path d={`M ${pts}`} fill="none" stroke="#fff" strokeWidth={lw * 1.8} strokeLinecap="round" strokeLinejoin="round" />
               )}
               <path
                 d={`M ${pts}`}
                 fill="none"
-                stroke={isWalk ? '#9ca3af' : (step.color ?? '#6b7280')}
-                strokeWidth={isWalk ? 4 : 7}
-                strokeDasharray={isWalk ? '8,7' : undefined}
+                stroke={lineColor}
+                strokeWidth={lw}
+                strokeDasharray={isWalk ? `${8 * mapScale},${7 * mapScale}` : undefined}
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                opacity={isWalk ? 0.7 : 0.9}
+                opacity={isWalk ? 0.65 : 0.9}
               />
             </g>
           )
@@ -433,21 +463,38 @@ export default function SeoulMap({ mode, destination, candidates, selectedCandid
         )}
       </div>
 
-      {/* Legend (구 view only) */}
+      {/* Legend + 경로 토글 (구 view only) */}
       {isGu && (destination || candidates.length > 0) && (
-        <div className="absolute top-3 right-3 z-10 bg-white/95 backdrop-blur-sm rounded-xl shadow-sm px-3 py-2 flex flex-col gap-1.5 pointer-events-none">
+        <div className="absolute top-3 right-3 z-10 bg-white/95 backdrop-blur-sm rounded-xl shadow-sm px-3 py-2 flex flex-col gap-1.5">
           {destination && (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 pointer-events-none">
               <span className="w-3 h-3 rounded-full bg-red-500 flex items-center justify-center text-white text-[7px] shrink-0">★</span>
-              <span className="text-[11px] text-gray-600 truncate max-w-[100px]">{destGu ?? destination.name}</span>
+              <span className="text-[11px] text-gray-600 truncate max-w-[80px]">{destGu ?? destination.name}</span>
             </div>
           )}
-          {candidates.map((c, i) => (
-            <div key={c.id} className="flex items-center gap-2">
-              <span className="w-3 h-3 rounded-full shrink-0" style={{ background: CANDIDATE_COLORS[i % CANDIDATE_COLORS.length] }} />
-              <span className="text-[11px] text-gray-600 truncate max-w-[100px]">{c.label}: {candGus[i] ?? c.name}</span>
-            </div>
-          ))}
+          {candidates.map((c, i) => {
+            const color = CANDIDATE_COLORS[i % CANDIDATE_COLORS.length]
+            const hasRoute = !!(c.routes.transit?.steps?.length)
+            const visible = routeVisible.has(c.id)
+            return (
+              <div key={c.id} className="flex items-center gap-2">
+                <button
+                  onClick={() => hasRoute && toggleRoute(c.id)}
+                  title={hasRoute ? (visible ? '경로 숨기기' : '경로 표시') : '경로 없음'}
+                  className="shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-white text-[9px] font-bold transition-all"
+                  style={{
+                    background: color,
+                    opacity: hasRoute ? 1 : 0.4,
+                    outline: visible && hasRoute ? `2px solid ${color}` : '2px solid transparent',
+                    outlineOffset: '1px',
+                  }}
+                >
+                  {visible && hasRoute ? c.label : <span style={{ opacity: 0.7 }}>{c.label}</span>}
+                </button>
+                <span className="text-[11px] text-gray-600 truncate max-w-[80px]">{candGus[i] ?? c.name}</span>
+              </div>
+            )
+          })}
         </div>
       )}
 
