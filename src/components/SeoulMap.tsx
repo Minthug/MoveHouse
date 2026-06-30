@@ -176,31 +176,31 @@ export default function SeoulMap({ mode, destination, candidates, selectedCandid
   const pins: Pin[] = []
 
   if (isGu && guData) {
-    // 구 뷰: 구 centroid에 핀 표시
+    // 구 뷰: 구 centroid에 핀 표시 (offset 없이 — 렌더링에서 mapScale로 처리)
     if (destination) {
       const g = guData.districts.find((d) => d.name === destGu)
-      if (g) pins.push({ cx: g.cx, cy: g.cy - 18, color: '#ef4444', glyph: '★', dimmed: false })
+      if (g) pins.push({ cx: g.cx, cy: g.cy, color: '#ef4444', glyph: '★', dimmed: false })
     }
     candidates.forEach((c, i) => {
       const g = guData.districts.find((d) => d.name === candGus[i])
       if (g) {
         const dimmed = selectedCandidateId !== null && selectedCandidateId !== c.id
-        pins.push({ cx: g.cx, cy: g.cy - 18, color: CANDIDATE_COLORS[i % CANDIDATE_COLORS.length], glyph: c.label, dimmed })
+        pins.push({ cx: g.cx, cy: g.cy, color: CANDIDATE_COLORS[i % CANDIDATE_COLORS.length], glyph: c.label, dimmed })
       }
     })
   } else if (!isGu && selGu) {
-    // 동 뷰: lat/lng → SVG 좌표로 직접 변환 (이름 매칭 불필요)
+    // 동 뷰: lat/lng → SVG 좌표로 직접 변환
     if (destination && destGu === selGu.name) {
       const sx = LNG_TO_SVG(destination.lng)
       const sy = LAT_TO_SVG(destination.lat)
-      pins.push({ cx: sx, cy: sy - 12, color: '#ef4444', glyph: '★', dimmed: false })
+      pins.push({ cx: sx, cy: sy, color: '#ef4444', glyph: '★', dimmed: false })
     }
     candidates.forEach((c, i) => {
       if (candGus[i] !== selGu.name) return
       const sx = LNG_TO_SVG(c.lng)
       const sy = LAT_TO_SVG(c.lat)
       const dimmed = selectedCandidateId !== null && selectedCandidateId !== c.id
-      pins.push({ cx: sx, cy: sy - 12, color: CANDIDATE_COLORS[i % CANDIDATE_COLORS.length], glyph: c.label, dimmed })
+      pins.push({ cx: sx, cy: sy, color: CANDIDATE_COLORS[i % CANDIDATE_COLORS.length], glyph: c.label, dimmed })
     })
   }
 
@@ -221,6 +221,9 @@ export default function SeoulMap({ mode, destination, candidates, selectedCandid
   const dongFill = (d: DongData) => (d.code === selDong?.code ? '#4f6ef2' : '#dbe2ee')
   const dongStroke = (d: DongData) => (d.code === selDong?.code ? '#3a55d9' : '#ffffff')
   const dongStrokeW = (d: DongData) => (d.code === selDong?.code ? 1.8 : 1.1)
+
+  // viewBox 너비 기준 스케일 — 구 뷰(1000)에서 1, 동 뷰 줌인 시 비례 축소
+  const mapScale = viewBox[2] / 1000
 
   return (
     <div className="relative w-full h-full overflow-hidden" style={{ background: '#f4f6fa', fontFamily: 'Pretendard, system-ui, sans-serif' }}>
@@ -301,7 +304,7 @@ export default function SeoulMap({ mode, destination, candidates, selectedCandid
           )
         })}
 
-        {/* 편의시설 마커 */}
+        {/* 편의시설 마커 — mapScale로 줌 레벨에 따라 크기 조정 */}
         {nearbyPlaces.map((place) => {
           const x = LNG_TO_SVG(place.lng)
           const y = LAT_TO_SVG(place.lat)
@@ -309,10 +312,11 @@ export default function SeoulMap({ mode, destination, candidates, selectedCandid
           const cfg = place.category === 'CUSTOM'
             ? { color: '#6b7280', emoji: '📍' }
             : PLACE_CATEGORIES[place.category as keyof typeof PLACE_CATEGORIES]
+          const pr = 13 * mapScale
           return (
             <g key={place.id} transform={`translate(${x.toFixed(1)},${y.toFixed(1)})`} style={{ pointerEvents: 'none' }}>
-              <circle r={13} fill={cfg.color} stroke="#fff" strokeWidth={2.5} opacity={0.92} />
-              <text textAnchor="middle" dominantBaseline="middle" fontSize={13} opacity={1}>
+              <circle r={pr} fill={cfg.color} stroke="#fff" strokeWidth={2 * mapScale} opacity={0.92} />
+              <text textAnchor="middle" dominantBaseline="middle" fontSize={pr} opacity={1}>
                 {cfg.emoji}
               </text>
             </g>
@@ -375,29 +379,37 @@ export default function SeoulMap({ mode, destination, candidates, selectedCandid
               })}
         </g>
 
-        {/* Pins */}
-        {pins.map((p, i) => (
-          <g
-            key={i}
-            transform={`translate(${p.cx}, ${p.cy})`}
-            opacity={p.dimmed ? 0.45 : 1}
-            style={{ pointerEvents: 'none' }}
-          >
-            <circle cx={0} cy={-14} r={14} fill={p.color} stroke="#ffffff" strokeWidth={2.5} />
-            <text
-              x={0}
-              y={-14}
-              textAnchor="middle"
-              dominantBaseline="middle"
-              fontSize={p.glyph === '★' ? 12 : 13}
-              fontWeight={800}
-              fill="#ffffff"
+        {/* Pins — mapScale로 줌 레벨에 맞게 크기 조정 */}
+        {pins.map((p, i) => {
+          const r = 14 * mapScale
+          const tailH = 9 * mapScale
+          const sw = 2.5 * mapScale
+          return (
+            <g
+              key={i}
+              transform={`translate(${p.cx}, ${p.cy})`}
+              opacity={p.dimmed ? 0.45 : 1}
+              style={{ pointerEvents: 'none' }}
             >
-              {p.glyph}
-            </text>
-            <polygon points="0,2 -6,-7 6,-7" fill={p.color} />
-          </g>
-        ))}
+              <circle cx={0} cy={-(r + tailH)} r={r} fill={p.color} stroke="#ffffff" strokeWidth={sw} />
+              <text
+                x={0}
+                y={-(r + tailH)}
+                textAnchor="middle"
+                dominantBaseline="middle"
+                fontSize={(p.glyph === '★' ? 12 : 13) * mapScale}
+                fontWeight={800}
+                fill="#ffffff"
+              >
+                {p.glyph}
+              </text>
+              <polygon
+                points={`0,0 ${-6 * mapScale},${-tailH} ${6 * mapScale},${-tailH}`}
+                fill={p.color}
+              />
+            </g>
+          )
+        })}
       </svg>
 
       {/* Top overlay */}
