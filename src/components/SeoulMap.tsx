@@ -176,6 +176,7 @@ export default function SeoulMap({ mode, destination, candidates, selectedCandid
   const pins: Pin[] = []
 
   if (isGu && guData) {
+    // 구 뷰: 구 centroid에 핀 표시
     if (destination) {
       const g = guData.districts.find((d) => d.name === destGu)
       if (g) pins.push({ cx: g.cx, cy: g.cy - 18, color: '#ef4444', glyph: '★', dimmed: false })
@@ -187,18 +188,19 @@ export default function SeoulMap({ mode, destination, candidates, selectedCandid
         pins.push({ cx: g.cx, cy: g.cy - 18, color: CANDIDATE_COLORS[i % CANDIDATE_COLORS.length], glyph: c.label, dimmed })
       }
     })
-  } else if (!isGu && selGu && dongData) {
+  } else if (!isGu && selGu) {
+    // 동 뷰: lat/lng → SVG 좌표로 직접 변환 (이름 매칭 불필요)
     if (destination && destGu === selGu.name) {
-      const dong = dongData.dong.find((d) => d.gu === selGu.code && d.name === destDong)
-      if (dong) pins.push({ cx: dong.cx, cy: dong.cy - 12, color: '#ef4444', glyph: '★', dimmed: false })
+      const sx = LNG_TO_SVG(destination.lng)
+      const sy = LAT_TO_SVG(destination.lat)
+      pins.push({ cx: sx, cy: sy - 12, color: '#ef4444', glyph: '★', dimmed: false })
     }
     candidates.forEach((c, i) => {
-      if (candGus[i] !== selGu.name || !dongData) return
-      const dong = dongData.dong.find((d) => d.gu === selGu.code && d.name === candDongs[i])
-      if (dong) {
-        const dimmed = selectedCandidateId !== null && selectedCandidateId !== c.id
-        pins.push({ cx: dong.cx, cy: dong.cy - 12, color: CANDIDATE_COLORS[i % CANDIDATE_COLORS.length], glyph: c.label, dimmed })
-      }
+      if (candGus[i] !== selGu.name) return
+      const sx = LNG_TO_SVG(c.lng)
+      const sy = LAT_TO_SVG(c.lat)
+      const dimmed = selectedCandidateId !== null && selectedCandidateId !== c.id
+      pins.push({ cx: sx, cy: sy - 12, color: CANDIDATE_COLORS[i % CANDIDATE_COLORS.length], glyph: c.label, dimmed })
     })
   }
 
@@ -309,8 +311,8 @@ export default function SeoulMap({ mode, destination, candidates, selectedCandid
             : PLACE_CATEGORIES[place.category as keyof typeof PLACE_CATEGORIES]
           return (
             <g key={place.id} transform={`translate(${x.toFixed(1)},${y.toFixed(1)})`} style={{ pointerEvents: 'none' }}>
-              <circle r={9} fill={cfg.color} stroke="#fff" strokeWidth={1.5} opacity={0.9} />
-              <text textAnchor="middle" dominantBaseline="middle" fontSize={9} opacity={0.95}>
+              <circle r={13} fill={cfg.color} stroke="#fff" strokeWidth={2.5} opacity={0.92} />
+              <text textAnchor="middle" dominantBaseline="middle" fontSize={13} opacity={1}>
                 {cfg.emoji}
               </text>
             </g>
