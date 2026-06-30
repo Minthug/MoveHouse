@@ -1,6 +1,5 @@
 import { useState, useRef } from 'react'
 import LocationCard from './LocationCard'
-import ModeToggle from './ModeToggle'
 import SearchBar from './SearchBar'
 import CompareAnalysis from './CompareAnalysis'
 import type { AppMode, CandidateLocation, Destination } from '../types'
@@ -60,8 +59,6 @@ function KeywordPlaceSearch({
 }
 
 interface Props {
-  mode: AppMode
-  onModeChange: (mode: AppMode) => void
   destination: Destination | null
   candidates: CandidateLocation[]
   selectedCandidateId: string | null
@@ -83,8 +80,6 @@ interface Props {
 }
 
 export default function ComparePanel({
-  mode,
-  onModeChange,
   destination,
   candidates,
   selectedCandidateId,
@@ -213,25 +208,28 @@ export default function ComparePanel({
         )}
       </div>
 
-      {/* Mode toggle */}
-      <div className="p-4 border-b border-gray-200 bg-white">
-        <ModeToggle
-          mode={mode}
-          onChange={onModeChange}
-          canAddCandidate={!!destination && candidates.length < MAX_CANDIDATES}
-        />
-        {mode === 'add-candidate' && candidates.length < MAX_CANDIDATES && (
-          <SearchBar
-            placeholder="후보지 주소 또는 매물 URL"
-            onSelect={onCandidateSelect}
-          />
-        )}
-        {candidates.length >= MAX_CANDIDATES && (
-          <p className="text-xs text-gray-400 mt-2 text-center">
-            최대 {MAX_CANDIDATES}개까지 추가할 수 있어요
-          </p>
-        )}
-      </div>
+      {/* Candidate search */}
+      {destination && (
+        <div className="p-4 border-b border-gray-200 bg-white space-y-2">
+          <div className="flex items-center gap-2">
+            <span className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs font-bold">+</span>
+            <span className="text-sm font-semibold text-gray-700">후보지 추가</span>
+            {candidates.length > 0 && (
+              <span className="text-xs text-gray-400">{candidates.length}/{MAX_CANDIDATES}</span>
+            )}
+          </div>
+          {candidates.length < MAX_CANDIDATES ? (
+            <SearchBar
+              placeholder="후보지 주소 또는 매물 URL"
+              onSelect={onCandidateSelect}
+            />
+          ) : (
+            <p className="text-xs text-gray-400 text-center py-1">
+              최대 {MAX_CANDIDATES}개까지 추가할 수 있어요
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Candidates list */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3">

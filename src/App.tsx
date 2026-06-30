@@ -27,7 +27,6 @@ function writeLocal(key: string, value: unknown) {
 }
 
 export default function App() {
-  const [mode, setMode] = useState<AppMode>('set-destination')
   const [destination, setDestination] = useState<Destination | null>(() => {
     const shared = decodeShare()
     if (shared) return { id: makeId(), ...shared.dest }
@@ -52,6 +51,7 @@ export default function App() {
   const [nearbyPlaces, setNearbyPlaces] = useState<NearbyPlace[]>([])
   const [customPlaces, setCustomPlaces] = useState<NearbyPlace[]>([])
   const didRestoreRef = useRef(false)
+  const mode: AppMode = destination ? 'add-candidate' : 'set-destination'
 
   const allNearbyPlaces = useMemo(
     () => [...nearbyPlaces, ...customPlaces],
@@ -142,15 +142,14 @@ export default function App() {
 
   const handleDistrictClick = useCallback(
     (name: string, lat: number, lng: number) => {
-      if (mode === 'set-destination') {
+      if (!destination) {
         setDestination({ id: makeId(), lat, lng, name, type: 'work' })
-      } else if (mode === 'add-candidate' && destination) {
-        // Don't add if it's already the destination district
+      } else {
         if (destination.name === name) return
         addCandidate(lat, lng, name, destination)
       }
     },
-    [mode, destination, candidates.length], // eslint-disable-line react-hooks/exhaustive-deps
+    [destination, candidates.length], // eslint-disable-line react-hooks/exhaustive-deps
   )
 
   function handleDestinationSelect(lat: number, lng: number, address: string) {
@@ -215,7 +214,6 @@ export default function App() {
     setDestination(null)
     setCandidates([])
     setSelectedCandidateId(null)
-    setMode('set-destination')
     localStorage.removeItem('commute-destination')
     localStorage.removeItem('commute-candidates')
     window.history.replaceState(null, '', window.location.pathname)
@@ -245,8 +243,6 @@ export default function App() {
       </div>
       <div className="w-[360px] shrink-0 flex flex-col overflow-hidden">
         <ComparePanel
-          mode={mode}
-          onModeChange={setMode}
           destination={destination}
           candidates={candidates}
           selectedCandidateId={selectedCandidateId}
