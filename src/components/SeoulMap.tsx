@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import type { AppMode, CandidateLocation, Destination } from '../types'
 import { PLACE_CATEGORIES } from '../services/places'
 import type { NearbyPlace } from '../services/places'
+import { SUBWAY_LINES } from '../data/subway-lines'
 
 // Least-squares calibration: SVG centroid ↔ WGS84 (25구 기준)
 const SVG_TO_LNG = (cx: number) => cx * 0.00040091 + 126.774831
@@ -109,6 +110,17 @@ export default function SeoulMap({ mode, destination, candidates, selectedCandid
     }
     rafRef.current = requestAnimationFrame(step)
   }
+
+  // 지하철 노선도 토글
+  const [visibleLines, setVisibleLines] = useState<Set<string>>(new Set())
+  const toggleLine = useCallback((id: string) => {
+    setVisibleLines((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }, [])
 
   // 후보지별 경로 표시 토글 (candidateId → visible)
   const [routeVisible, setRouteVisible] = useState<Set<string>>(new Set())
@@ -306,6 +318,21 @@ export default function SeoulMap({ mode, destination, candidates, selectedCandid
             </g>
           ))}
 
+        {/* 지하철 노선도 */}
+        {isGu && SUBWAY_LINES.filter((l) => visibleLines.has(l.id)).map((line) =>
+          line.paths.map((path, pi) => {
+            const pts = path
+              .map(([lat, lng]) => `${LNG_TO_SVG(lng).toFixed(1)},${LAT_TO_SVG(lat).toFixed(1)}`)
+              .join(' L ')
+            return (
+              <g key={`${line.id}-${pi}`} style={{ pointerEvents: 'none' }}>
+                <path d={`M ${pts}`} fill="none" stroke="#fff" strokeWidth={5 * mapScale} strokeLinecap="round" strokeLinejoin="round" opacity={0.7} />
+                <path d={`M ${pts}`} fill="none" stroke={line.color} strokeWidth={3.5 * mapScale} strokeLinecap="round" strokeLinejoin="round" opacity={0.9} />
+              </g>
+            )
+          })
+        )}
+
         {/* 경로선 — 토글된 모든 후보지 */}
         {isGu && allRouteSegments.map((seg, i) => {
           const pts = seg.coords!
@@ -495,6 +522,31 @@ export default function SeoulMap({ mode, destination, candidates, selectedCandid
               </div>
             )
           })}
+        </div>
+      )}
+
+      {/* 지하철 노선 토글 버튼 바 */}
+      {isGu && (
+        <div className="absolute bottom-16 left-0 right-0 z-10 flex justify-center px-3 pb-1">
+          <div className="flex gap-1.5 overflow-x-auto scrollbar-none bg-white/90 backdrop-blur-sm rounded-full px-3 py-1.5 shadow-sm">
+            {SUBWAY_LINES.map((line) => {
+              const on = visibleLines.has(line.id)
+              return (
+                <button
+                  key={line.id}
+                  onClick={() => toggleLine(line.id)}
+                  className="shrink-0 px-2.5 py-1 rounded-full text-[11px] font-bold transition-all"
+                  style={{
+                    background: on ? line.color : '#f3f4f6',
+                    color: on ? '#fff' : '#6b7280',
+                    border: `1.5px solid ${on ? line.color : '#e5e7eb'}`,
+                  }}
+                >
+                  {line.name}
+                </button>
+              )
+            })}
+          </div>
         </div>
       )}
 
