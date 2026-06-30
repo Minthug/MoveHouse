@@ -239,6 +239,7 @@ export default function App() {
           destination={destination}
           candidates={candidates}
           selectedCandidateId={selectedCandidateId}
+          selectedRouteType={selectedRouteType}
           onDistrictClick={handleDistrictClick}
         />
       </div>

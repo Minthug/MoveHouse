@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import type { AppMode, CandidateLocation, Destination } from '../types'
 
-// Least-squares calibration: SVG centroid → WGS84 (25구 기준)
+// Least-squares calibration: SVG centroid ↔ WGS84 (25구 기준)
 const SVG_TO_LNG = (cx: number) => cx * 0.00040091 + 126.774831
 const SVG_TO_LAT = (cy: number) => cy * -0.00032220 + 37.691944
+const LNG_TO_SVG = (lng: number) => (lng - 126.774831) / 0.00040091
+const LAT_TO_SVG = (lat: number) => (lat - 37.691944) / -0.00032220
 
 interface GuData {
   name: string
@@ -62,10 +64,11 @@ interface Props {
   destination: Destination | null
   candidates: CandidateLocation[]
   selectedCandidateId: string | null
+  selectedRouteType: 'transit' | 'bus'
   onDistrictClick: (name: string, lat: number, lng: number) => void
 }
 
-export default function SeoulMap({ mode, destination, candidates, selectedCandidateId, onDistrictClick }: Props) {
+export default function SeoulMap({ mode, destination, candidates, selectedCandidateId, selectedRouteType, onDistrictClick }: Props) {
   const [guData, setGuData] = useState<SeoulData | null>(null)
   const [dongData, setDongData] = useState<DongSeoulData | null>(null)
   const [viewMode, setViewMode] = useState<'gu' | 'dong'>('gu')
@@ -104,6 +107,16 @@ export default function SeoulMap({ mode, destination, candidates, selectedCandid
     rafRef.current = requestAnimationFrame(step)
   }
 
+  // 경로 선택 시 전체 뷰로 줌아웃해서 경로가 보이도록
+  useEffect(() => {
+    if (selectedCandidateId) {
+      setViewMode('gu')
+      setSelGu(null)
+      setSelDong(null)
+      zoomTo([0, 0, 1000, 800])
+    }
+  }, [selectedCandidateId]) // eslint-disable-line react-hooks/exhaustive-deps
+
   function drillTo(g: GuData) {
     setViewMode('dong')
     setSelGu(g)
@@ -137,6 +150,16 @@ export default function SeoulMap({ mode, destination, candidates, selectedCandid
 
   const isGu = viewMode === 'gu'
   const dongs = isGu ? [] : (dongData?.dong.filter((d) => d.gu === selGu?.code) ?? [])
+
+  // 선택된 후보지 경로선 계산
+  const routeSteps = (() => {
+    if (!selectedCandidateId) return []
+    const cand = candidates.find((c) => c.id === selectedCandidateId)
+    if (!cand) return []
+    const route = (selectedRouteType === 'bus' ? cand.routes.bus : null) ?? cand.routes.transit
+    return route?.steps?.filter((s) => s.coords && s.coords.length >= 2) ?? []
+  })()
+
   // Destination district info
   const destGu = destination ? extractGuName(destination.name) ?? destination.name : null
   const destDong = destination ? extractDongName(destination.name) : null
@@ -247,6 +270,31 @@ export default function SeoulMap({ mode, destination, candidates, selectedCandid
               <path d={rd} fill="none" stroke="#8ecdd8" strokeWidth={18} strokeLinejoin="round" strokeLinecap="round" opacity={0.9} />
             </g>
           ))}
+
+        {/* 경로선 (선택된 후보지) */}
+        {routeSteps.map((step, i) => {
+          const pts = step.coords!
+            .map(([lat, lng]) => `${LNG_TO_SVG(lng).toFixed(1)},${LAT_TO_SVG(lat).toFixed(1)}`)
+            .join(' L ')
+          const isWalk = step.type === 'walk'
+          return (
+            <g key={i} style={{ pointerEvents: 'none' }}>
+              {!isWalk && (
+                <path d={`M ${pts}`} fill="none" stroke="#fff" strokeWidth={10} strokeLinecap="round" strokeLinejoin="round" opacity={0.6} />
+              )}
+              <path
+                d={`M ${pts}`}
+                fill="none"
+                stroke={isWalk ? '#9ca3af' : (step.color ?? '#6b7280')}
+                strokeWidth={isWalk ? 4 : 7}
+                strokeDasharray={isWalk ? '8,7' : undefined}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                opacity={isWalk ? 0.7 : 0.9}
+              />
+            </g>
+          )
+        })}
 
         {/* 구 outline in dong view */}
         {!isGu && selGu && (
