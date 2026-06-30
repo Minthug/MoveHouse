@@ -103,48 +103,60 @@ export async function fetchNearbyPlaces(
     .join('\n')
   const query = `[out:json][timeout:25];\n(\n${unions}\n);\nout center;`
 
-  try {
-    const res = await fetch(OVERPASS_URL, { method: 'POST', body: query })
-    if (!res.ok) return []
-    const data: { elements: OverpassElement[] } = await res.json()
+  // Overpass rate-limit 시 XML 에러를 반환하므로 재시도
+  async function callOverpass(retries = 2): Promise<{ elements: OverpassElement[] } | null> {
+    for (let i = 0; i <= retries; i++) {
+      try {
+        if (i > 0) await new Promise((r) => setTimeout(r, 1500 * i))
+        const res = await fetch(OVERPASS_URL, { method: 'POST', body: query })
+        if (!res.ok) continue
+        const text = await res.text()
+        if (!text.startsWith('{')) continue // XML 에러 응답
+        return JSON.parse(text)
+      } catch { continue }
+    }
+    return null
+  }
 
-    const seen = new Set<string>()
-    const results: NearbyPlace[] = []
+  const data = await callOverpass()
+  if (!data) return []
 
-    for (const el of data.elements) {
-      const elLat = el.lat ?? el.center?.lat
-      const elLng = el.lon ?? el.center?.lon
-      const name = el.tags?.['name:ko'] ?? el.tags?.name
-      if (!elLat || !elLng || !name) continue
-      if (seen.has(name)) continue
-      seen.add(name)
+  const seenId = new Set<string>()
+  const results: NearbyPlace[] = []
 
-      // 가장 가까운 위치 기준으로 distance / sourceId 결정
-      let nearest = locs[0]
-      let minDist = haversine(locs[0].lat, locs[0].lng, elLat, elLng)
-      for (const loc of locs.slice(1)) {
-        const d = haversine(loc.lat, loc.lng, elLat, elLng)
-        if (d < minDist) { minDist = d; nearest = loc }
-      }
+  for (const el of data.elements) {
+    const uid = String(el.id)
+    if (seenId.has(uid)) continue
+    seenId.add(uid)
 
-      results.push({
-        id: String(el.id),
-        name,
-        lat: elLat,
-        lng: elLng,
-        distance: minDist,
-        address: el.tags?.['addr:full'] ?? el.tags?.['addr:city'] ?? '',
-        category,
-        sourceId: nearest.id,
-      })
+    const elLat = el.lat ?? el.center?.lat
+    const elLng = el.lon ?? el.center?.lon
+    const name = el.tags?.['name:ko'] ?? el.tags?.name
+    if (!elLat || !elLng || !name) continue
+
+    // 가장 가까운 위치 기준으로 distance / sourceId 결정
+    let nearest = locs[0]
+    let minDist = haversine(locs[0].lat, locs[0].lng, elLat, elLng)
+    for (const loc of locs.slice(1)) {
+      const d = haversine(loc.lat, loc.lng, elLat, elLng)
+      if (d < minDist) { minDist = d; nearest = loc }
     }
 
-    const sorted = results.sort((a, b) => a.distance - b.distance).slice(0, 30)
-    overpassCache.set(cacheKey, sorted)
-    return sorted
-  } catch {
-    return []
+    results.push({
+      id: uid,
+      name,
+      lat: elLat,
+      lng: elLng,
+      distance: minDist,
+      address: el.tags?.['addr:full'] ?? el.tags?.['addr:city'] ?? '',
+      category,
+      sourceId: nearest.id,
+    })
   }
+
+  const sorted = results.sort((a, b) => a.distance - b.distance).slice(0, 30)
+  overpassCache.set(cacheKey, sorted)
+  return sorted
 }
 
 export function clearOverpassCache() {
