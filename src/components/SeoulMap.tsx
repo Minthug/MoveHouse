@@ -319,7 +319,7 @@ export default function SeoulMap({ mode, destination, candidates, selectedCandid
           ))}
 
         {/* 지하철 노선도 */}
-        {isGu && SUBWAY_LINES.filter((l) => visibleLines.has(l.id)).map((line) =>
+        {SUBWAY_LINES.filter((l) => visibleLines.has(l.id)).map((line) =>
           line.stations.map((segment, si) => {
             const pts = segment
               .map((st) => `${LNG_TO_SVG(st.lng).toFixed(1)},${LAT_TO_SVG(st.lat).toFixed(1)}`)
@@ -334,7 +334,7 @@ export default function SeoulMap({ mode, destination, candidates, selectedCandid
         )}
 
         {/* 지하철 역명 마커 */}
-        {isGu && SUBWAY_LINES.filter((l) => visibleLines.has(l.id)).map((line) =>
+        {SUBWAY_LINES.filter((l) => visibleLines.has(l.id)).map((line) =>
           line.stations.map((segment, si) =>
             segment.map((st, stIdx) => {
               const sx = LNG_TO_SVG(st.lng)
@@ -366,7 +366,7 @@ export default function SeoulMap({ mode, destination, candidates, selectedCandid
         )}
 
         {/* 경로선 — 토글된 모든 후보지 */}
-        {isGu && allRouteSegments.map((seg, i) => {
+        {allRouteSegments.map((seg, i) => {
           const pts = seg.coords!
             .map(([lat, lng]) => `${LNG_TO_SVG(lng).toFixed(1)},${LAT_TO_SVG(lat).toFixed(1)}`)
             .join(' L ')
@@ -558,7 +558,7 @@ export default function SeoulMap({ mode, destination, candidates, selectedCandid
       )}
 
       {/* 지하철 노선 토글 버튼 — 왼쪽 세로 컬럼 */}
-      {isGu && (
+      {(
         <div className="absolute left-3 top-14 z-10 flex flex-col gap-1 bg-white/90 backdrop-blur-sm rounded-xl px-2 py-2 shadow-sm max-h-[calc(100%-120px)] overflow-y-auto scrollbar-none">
           {SUBWAY_LINES.map((line) => {
             const on = visibleLines.has(line.id)
