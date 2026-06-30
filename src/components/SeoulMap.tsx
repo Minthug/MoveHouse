@@ -10,6 +10,29 @@ const SVG_TO_LAT = (cy: number) => cy * -0.00032220 + 37.691944
 const LNG_TO_SVG = (lng: number) => (lng - 126.774831) / 0.00040091
 const LAT_TO_SVG = (lat: number) => (lat - 37.691944) / -0.00032220
 
+// 한강 중심선 — WGS84 waypoints (서→동)
+// SVG 원본 한강 패스는 좌표계 불일치로 동쪽에서 최대 1.6km 오차 발생
+const HAN_RIVER_COORDS: [number, number][] = [
+  [37.576, 126.819], // 방화대교 (서울 서쪽 경계)
+  [37.562, 126.855], // 가양대교
+  [37.543, 126.891], // 성산대교
+  [37.528, 126.918], // 양화대교
+  [37.519, 126.939], // 마포대교
+  [37.515, 126.958], // 원효대교
+  [37.512, 126.988], // 한강대교
+  [37.508, 127.008], // 동작대교
+  [37.506, 127.022], // 반포대교·잠수교
+  [37.511, 127.035], // 한남대교 남측
+  [37.522, 127.051], // 한남대교 — 강이 북쪽으로 굽음
+  [37.528, 127.066], // 동호·성수대교
+  [37.524, 127.084], // 영동대교
+  [37.518, 127.097], // 잠실대교
+  [37.515, 127.112], // 잠실철교
+  [37.524, 127.131], // 올림픽대교
+  [37.542, 127.147], // 천호대교
+  [37.558, 127.162], // 서울 동쪽 경계
+]
+
 interface GuData {
   name: string
   code: string
@@ -309,14 +332,18 @@ export default function SeoulMap({ mode, destination, candidates, selectedCandid
               />
             ))}
 
-        {/* Han river */}
-        {isGu &&
-          guData.river?.map((rd, i) => (
-            <g key={i} style={{ pointerEvents: 'none' }}>
-              <path d={rd} fill="none" stroke="#5aa9b8" strokeWidth={25} strokeLinejoin="round" strokeLinecap="round" opacity={0.7} />
-              <path d={rd} fill="none" stroke="#8ecdd8" strokeWidth={18} strokeLinejoin="round" strokeLinecap="round" opacity={0.9} />
+        {/* 한강 — WGS84 좌표 기반 (SVG 원본 패스는 좌표계 불일치로 제거) */}
+        {isGu && (() => {
+          const pts = HAN_RIVER_COORDS
+            .map(([lat, lng]) => `${LNG_TO_SVG(lng).toFixed(1)},${LAT_TO_SVG(lat).toFixed(1)}`)
+            .join(' L ')
+          return (
+            <g style={{ pointerEvents: 'none' }}>
+              <path d={`M ${pts}`} fill="none" stroke="#5aa9b8" strokeWidth={24 * mapScale} strokeLinecap="round" strokeLinejoin="round" opacity={0.65} />
+              <path d={`M ${pts}`} fill="none" stroke="#8ecdd8" strokeWidth={17 * mapScale} strokeLinecap="round" strokeLinejoin="round" opacity={0.9} />
             </g>
-          ))}
+          )
+        })()}
 
         {/* 지하철 노선도 */}
         {SUBWAY_LINES.filter((l) => visibleLines.has(l.id)).map((line) =>
