@@ -11,6 +11,11 @@ export default defineConfig(({ mode }) => {
     },
     server: {
       proxy: {
+        '/api/overpass': {
+          target: 'https://overpass-api.de',
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/api\/overpass/, '/api/interpreter'),
+        },
         '/api/transit': {
           target: 'https://api.odsay.com',
           changeOrigin: true,
