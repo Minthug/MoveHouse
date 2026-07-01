@@ -80,8 +80,8 @@ export default function SeoulMap({ mode, destination, candidates, selectedCandid
   const [selGu, setSelGu] = useState<GuData | null>(null)
   const [selDong, setSelDong] = useState<DongData | null>(null)
   const [hoveredGu, setHoveredGu] = useState<string | null>(null)
-  const [viewBox, setViewBox] = useState<[number, number, number, number]>([0, 0, 1000, 800])
-  const vbRef = useRef<[number, number, number, number]>([0, 0, 1000, 800])
+  const [viewBox, setViewBox] = useState<[number, number, number, number]>([-40, -40, 1100, 880])
+  const vbRef = useRef<[number, number, number, number]>([-40, -40, 1100, 880])
   const rafRef = useRef(0)
 
   useEffect(() => {
@@ -153,7 +153,7 @@ export default function SeoulMap({ mode, destination, candidates, selectedCandid
       setViewMode('gu')
       setSelGu(null)
       setSelDong(null)
-      zoomTo([0, 0, 1000, 800])
+      zoomTo([-40, -40, 1100, 880])
     }
   }, [selectedCandidateId]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -169,7 +169,7 @@ export default function SeoulMap({ mode, destination, candidates, selectedCandid
     setViewMode('gu')
     setSelGu(null)
     setSelDong(null)
-    zoomTo([0, 0, 1000, 800])
+    zoomTo([-40, -40, 1100, 880])
   }
 
   function confirmSelection() {
@@ -274,6 +274,9 @@ export default function SeoulMap({ mode, destination, candidates, selectedCandid
         preserveAspectRatio="xMidYMid meet"
         style={{ display: 'block' }}
       >
+        {/* Water background — Han River shows as gap between districts */}
+        <rect x={viewBox[0]} y={viewBox[1]} width={viewBox[2]} height={viewBox[3]} fill="#c8dff0" />
+
         {/* Backdrop in dong view */}
         {!isGu &&
           guData.districts.map((d) => (
