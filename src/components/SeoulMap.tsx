@@ -3,6 +3,7 @@ import type { AppMode, CandidateLocation, Destination } from '../types'
 import { PLACE_CATEGORIES } from '../services/places'
 import type { NearbyPlace } from '../services/places'
 import { SUBWAY_LINES } from '../data/subway-lines'
+import { METRO } from '../data/metro-data'
 
 // Least-squares calibration: SVG centroid ↔ WGS84 (25구 기준)
 const SVG_TO_LNG = (cx: number) => cx * 0.00040091 + 126.774831
@@ -80,8 +81,8 @@ export default function SeoulMap({ mode, destination, candidates, selectedCandid
   const [selGu, setSelGu] = useState<GuData | null>(null)
   const [selDong, setSelDong] = useState<DongData | null>(null)
   const [hoveredGu, setHoveredGu] = useState<string | null>(null)
-  const [viewBox, setViewBox] = useState<[number, number, number, number]>([-50, -40, 1110, 900])
-  const vbRef = useRef<[number, number, number, number]>([-50, -40, 1110, 900])
+  const [viewBox, setViewBox] = useState<[number, number, number, number]>([-468, -323, 1999, 1599])
+  const vbRef = useRef<[number, number, number, number]>([-468, -323, 1999, 1599])
   const rafRef = useRef(0)
 
   useEffect(() => {
@@ -153,7 +154,7 @@ export default function SeoulMap({ mode, destination, candidates, selectedCandid
       setViewMode('gu')
       setSelGu(null)
       setSelDong(null)
-      zoomTo([-50, -40, 1110, 900])
+      zoomTo([-468, -323, 1999, 1599])
     }
   }, [selectedCandidateId]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -169,7 +170,7 @@ export default function SeoulMap({ mode, destination, candidates, selectedCandid
     setViewMode('gu')
     setSelGu(null)
     setSelDong(null)
-    zoomTo([-50, -40, 1110, 900])
+    zoomTo([-468, -323, 1999, 1599])
   }
 
   function confirmSelection() {
@@ -248,7 +249,7 @@ export default function SeoulMap({ mode, destination, candidates, selectedCandid
     if (destination && d.name === destGu) return '#ef4444'
     const ci = candGus.indexOf(d.name)
     if (ci >= 0) return CANDIDATE_COLORS[ci % CANDIDATE_COLORS.length]
-    return '#e4e9f1'
+    return '#c7d4ec'
   }
 
   const guOpacity = (d: GuData) => {
@@ -274,6 +275,48 @@ export default function SeoulMap({ mode, destination, candidates, selectedCandid
         preserveAspectRatio="xMidYMid meet"
         style={{ display: 'block' }}
       >
+        {/* 수도권 배경 (인천·경기) — 컨텍스트용, 비클릭 */}
+        {isGu &&
+          METRO.map((m) => (
+            <path
+              key={m.code}
+              d={m.d}
+              fill="#e4e7ec"
+              stroke="#eef1f5"
+              strokeWidth={1.4 * mapScale}
+              strokeLinejoin="round"
+              opacity={0.85}
+              style={{ pointerEvents: 'none' }}
+            />
+          ))}
+        {/* 수도권 지역명 라벨 (시 단위, 중복 제거) */}
+        {isGu &&
+          Object.values(
+            METRO.reduce((acc, m) => {
+              (acc[m.label] = acc[m.label] || []).push(m)
+              return acc
+            }, {} as Record<string, typeof METRO>),
+          ).map((group) => {
+            const cx = group.reduce((s, g) => s + g.cx, 0) / group.length
+            const cy = group.reduce((s, g) => s + g.cy, 0) / group.length
+            return (
+              <text
+                key={group[0].label}
+                x={cx}
+                y={cy}
+                textAnchor="middle"
+                dominantBaseline="middle"
+                fontSize={9 * mapScale}
+                fontWeight={500}
+                fill="#9aa3b0"
+                letterSpacing="-0.3"
+                style={{ pointerEvents: 'none' }}
+              >
+                {group[0].label}
+              </text>
+            )
+          })}
+
         {/* Backdrop in dong view */}
         {!isGu &&
           guData.districts.map((d) => (
@@ -288,7 +331,7 @@ export default function SeoulMap({ mode, destination, candidates, selectedCandid
                 d={d.d}
                 fill={guFill(d)}
                 stroke="#ffffff"
-                strokeWidth={1.4}
+                strokeWidth={1.2 * mapScale}
                 strokeLinejoin="round"
                 opacity={guOpacity(d)}
                 style={{ cursor: 'pointer' }}
