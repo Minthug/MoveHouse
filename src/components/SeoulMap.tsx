@@ -80,8 +80,8 @@ export default function SeoulMap({ mode, destination, candidates, selectedCandid
   const [selGu, setSelGu] = useState<GuData | null>(null)
   const [selDong, setSelDong] = useState<DongData | null>(null)
   const [hoveredGu, setHoveredGu] = useState<string | null>(null)
-  const [viewBox, setViewBox] = useState<[number, number, number, number]>([0, 0, 1000, 800])
-  const vbRef = useRef<[number, number, number, number]>([0, 0, 1000, 800])
+  const [viewBox, setViewBox] = useState<[number, number, number, number]>([-50, -40, 1110, 900])
+  const vbRef = useRef<[number, number, number, number]>([-50, -40, 1110, 900])
   const rafRef = useRef(0)
 
   useEffect(() => {
@@ -153,7 +153,7 @@ export default function SeoulMap({ mode, destination, candidates, selectedCandid
       setViewMode('gu')
       setSelGu(null)
       setSelDong(null)
-      zoomTo([0, 0, 1000, 800])
+      zoomTo([-50, -40, 1110, 900])
     }
   }, [selectedCandidateId]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -169,7 +169,7 @@ export default function SeoulMap({ mode, destination, candidates, selectedCandid
     setViewMode('gu')
     setSelGu(null)
     setSelDong(null)
-    zoomTo([0, 0, 1000, 800])
+    zoomTo([-50, -40, 1110, 900])
   }
 
   function confirmSelection() {
