@@ -310,13 +310,19 @@ export default function SeoulMap({ mode, destination, candidates, selectedCandid
               />
             ))}
 
-        {/* 한강 — 구 SVG와 동일한 좌표계이므로 원본 패스 사용 */}
+        {/* 한강 — OSM 실제 물길 폴리곤 (채움) */}
         {isGu &&
           guData.river?.map((rd, i) => (
-            <g key={i} style={{ pointerEvents: 'none' }}>
-              <path d={rd} fill="none" stroke="#5aa9b8" strokeWidth={25 * mapScale} strokeLinejoin="round" strokeLinecap="round" opacity={0.65} />
-              <path d={rd} fill="none" stroke="#8ecdd8" strokeWidth={18 * mapScale} strokeLinejoin="round" strokeLinecap="round" opacity={0.9} />
-            </g>
+            <path
+              key={i}
+              d={rd}
+              fill="#a8cfe8"
+              fillRule="evenodd"
+              stroke="#8ab8d8"
+              strokeWidth={0.8 * mapScale}
+              strokeLinejoin="round"
+              style={{ pointerEvents: 'none' }}
+            />
           ))}
 
         {/* 지하철 노선도 */}
