@@ -217,17 +217,19 @@ export default function SeoulMap({ mode, destination, candidates, selectedCandid
   const pins: Pin[] = []
 
   if (isGu && guData) {
-    // 구 뷰: 구 centroid에 핀 표시 (offset 없이 — 렌더링에서 mapScale로 처리)
+    // 구 뷰: 서울은 구 centroid에, 근교(구 매칭 실패)는 실좌표로 핀 표시
     if (destination) {
       const g = guData.districts.find((d) => d.name === destGu)
-      if (g) pins.push({ cx: g.cx, cy: g.cy, color: '#ef4444', glyph: '★', dimmed: false })
+      const cx = g ? g.cx : LNG_TO_SVG(destination.lng)
+      const cy = g ? g.cy : LAT_TO_SVG(destination.lat)
+      pins.push({ cx, cy, color: '#ef4444', glyph: '★', dimmed: false })
     }
     candidates.forEach((c, i) => {
       const g = guData.districts.find((d) => d.name === candGus[i])
-      if (g) {
-        const dimmed = selectedCandidateId !== null && selectedCandidateId !== c.id
-        pins.push({ cx: g.cx, cy: g.cy, color: CANDIDATE_COLORS[i % CANDIDATE_COLORS.length], glyph: c.label, dimmed })
-      }
+      const cx = g ? g.cx : LNG_TO_SVG(c.lng)
+      const cy = g ? g.cy : LAT_TO_SVG(c.lat)
+      const dimmed = selectedCandidateId !== null && selectedCandidateId !== c.id
+      pins.push({ cx, cy, color: CANDIDATE_COLORS[i % CANDIDATE_COLORS.length], glyph: c.label, dimmed })
     })
   } else if (!isGu && selGu) {
     // 동 뷰: lat/lng → SVG 좌표로 직접 변환
