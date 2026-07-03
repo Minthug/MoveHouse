@@ -1,5 +1,13 @@
 import { calcMonthlyFare } from '../services/directions'
-import type { CandidateLocation } from '../types'
+import type { CandidateLocation, RouteResult } from '../types'
+
+// 경로에서 환승 횟수·총 도보 시간 추출
+function legStats(r?: RouteResult): { transfers: number; walk: number } {
+  const steps = r?.steps ?? []
+  const vehicleLegs = steps.filter((s) => s.type === 'subway' || s.type === 'bus').length
+  const walk = steps.filter((s) => s.type === 'walk').reduce((a, s) => a + s.duration, 0)
+  return { transfers: Math.max(0, vehicleLegs - 1), walk }
+}
 
 const CANDIDATE_COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ec4899']
 const MEDALS = ['🥇', '🥈', '🥉', '4위', '5위']
@@ -59,6 +67,35 @@ export default function CompareAnalysis({ candidates, hasDest2, selectedCandidat
   const maxDuration = Math.max(...ranked.map(dur), 1)
   const maxFare = Math.max(...ranked.map((c) => calcMonthlyFare(fare(c))), 1)
 
+  // 후보지별 환승·도보 (두 목적지면 합산)
+  const stats = new Map(
+    ranked.map((c) => {
+      const s1 = legStats(c.routes.transit)
+      const s2 = hasDest2 ? legStats(c.routes2?.transit) : { transfers: 0, walk: 0 }
+      return [c.id, { transfers: s1.transfers + s2.transfers, walk: s1.walk + s2.walk }]
+    }),
+  )
+
+  // 강점 배지: 각 지표의 최솟값 보유자에게 부여 (값이 모두 같으면 배지 없음)
+  const vary = (vals: number[]) => new Set(vals).size > 1
+  const durs = ranked.map(dur)
+  const fares = ranked.map(fare)
+  const transfersArr = ranked.map((c) => stats.get(c.id)!.transfers)
+  const walksArr = ranked.map((c) => stats.get(c.id)!.walk)
+  const minDur = Math.min(...durs), minFare = Math.min(...fares)
+  const minTransfers = Math.min(...transfersArr), minWalk = Math.min(...walksArr)
+
+  function badges(c: CandidateLocation): string[] {
+    const st = stats.get(c.id)!
+    const out: string[] = []
+    if (vary(durs) && dur(c) === minDur) out.push('⚡ 가장 빠름')
+    if (vary(fares) && fare(c) === minFare) out.push('💰 가장 저렴')
+    if (st.transfers === minTransfers && (st.transfers === 0 || vary(transfersArr)))
+      out.push(st.transfers === 0 ? '🔁 환승 없음' : '🔁 환승 최소')
+    if (vary(walksArr) && st.walk === minWalk) out.push('🚶 도보 최소')
+    return out
+  }
+
   return (
     <div className="flex flex-col h-full bg-gray-50">
       {/* Header */}
@@ -102,6 +139,8 @@ export default function CompareAnalysis({ candidates, hasDest2, selectedCandidat
             const isFirst = i === 0
 
             const transitSteps = (transit.steps ?? []).filter((s) => s.type !== 'walk')
+            const st = stats.get(c.id)!
+            const bs = badges(c)
 
             const isSelected = selectedCandidateId === c.id
 
@@ -136,7 +175,25 @@ export default function CompareAnalysis({ candidates, hasDest2, selectedCandidat
                   )}
                 </div>
 
+                {/* 강점 배지 */}
+                {bs.length > 0 && (
+                  <div className="px-4 pb-1 flex flex-wrap gap-1">
+                    {bs.map((b) => (
+                      <span key={b} className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
+                        {b}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
                 <div className="px-4 pb-4 space-y-3">
+                  {/* 환승·도보 요약 */}
+                  <div className="flex items-center gap-3 text-xs text-gray-500">
+                    <span className="flex items-center gap-1">🔁 환승 {st.transfers}회</span>
+                    <span className="text-gray-300">·</span>
+                    <span className="flex items-center gap-1">🚶 도보 {st.walk}분</span>
+                  </div>
+
                   {/* 통근 시간 바 */}
                   <div>
                     <div className="flex justify-between items-center mb-1">
