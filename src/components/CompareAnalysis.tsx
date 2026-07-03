@@ -37,20 +37,27 @@ function lineColor(name?: string) {
 
 interface Props {
   candidates: CandidateLocation[]
+  hasDest2?: boolean
   selectedCandidateId: string | null
   onSelectCandidate: (id: string, routeType: 'transit' | 'bus') => void
   onBack: () => void
 }
 
-export default function CompareAnalysis({ candidates, selectedCandidateId, onSelectCandidate, onBack }: Props) {
-  const ready = candidates.filter((c) => c.routes.transit && !c.loading)
-
-  const ranked = [...ready].sort(
-    (a, b) => (a.routes.transit!.duration) - (b.routes.transit!.duration),
+export default function CompareAnalysis({ candidates, hasDest2, selectedCandidateId, onSelectCandidate, onBack }: Props) {
+  // 합산 기준: 두 목적지 모두 경로가 있어야 비교 대상
+  const ready = candidates.filter((c) =>
+    !c.loading && c.routes.transit && (!hasDest2 || c.routes2?.transit),
   )
 
-  const maxDuration = Math.max(...ranked.map((c) => c.routes.transit!.duration), 1)
-  const maxFare = Math.max(...ranked.map((c) => calcMonthlyFare(c.routes.transit!.fare)), 1)
+  // 순위 기준값: 두 목적지면 합산, 아니면 주 목적지
+  const dur = (c: CandidateLocation) =>
+    (c.routes.transit?.duration ?? 0) + (hasDest2 ? (c.routes2?.transit?.duration ?? 0) : 0)
+  const fare = (c: CandidateLocation) =>
+    (c.routes.transit?.fare ?? 0) + (hasDest2 ? (c.routes2?.transit?.fare ?? 0) : 0)
+
+  const ranked = [...ready].sort((a, b) => dur(a) - dur(b))
+  const maxDuration = Math.max(...ranked.map(dur), 1)
+  const maxFare = Math.max(...ranked.map((c) => calcMonthlyFare(fare(c))), 1)
 
   return (
     <div className="flex flex-col h-full bg-gray-50">
@@ -64,7 +71,9 @@ export default function CompareAnalysis({ candidates, selectedCandidateId, onSel
         </button>
         <div>
           <h2 className="text-sm font-bold text-gray-900">비교 분석</h2>
-          <p className="text-xs text-gray-400">{ranked.length}개 후보지 · 통근 시간 기준 정렬</p>
+          <p className="text-xs text-gray-400">
+            {ranked.length}개 후보지 · {hasDest2 ? '두 목적지 합산 시간 기준' : '통근 시간 기준'} 정렬
+          </p>
         </div>
       </div>
 
@@ -72,15 +81,21 @@ export default function CompareAnalysis({ candidates, selectedCandidateId, onSel
         <div className="flex-1 flex items-center justify-center text-center p-8">
           <div>
             <div className="text-4xl mb-3">📊</div>
-            <p className="text-sm text-gray-500">경로가 계산된 후보지가<br />2개 이상 있어야 해요</p>
+            <p className="text-sm text-gray-500">
+              {hasDest2
+                ? <>두 목적지 경로가 모두 계산된<br />후보지가 2개 이상 있어야 해요</>
+                : <>경로가 계산된 후보지가<br />2개 이상 있어야 해요</>}
+            </p>
           </div>
         </div>
       ) : (
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
           {ranked.map((c, i) => {
             const transit = c.routes.transit!
-            const monthly = calcMonthlyFare(transit.fare)
-            const timeRatio = transit.duration / maxDuration
+            const transit2 = c.routes2?.transit
+            const totalDur = dur(c)
+            const monthly = calcMonthlyFare(fare(c))
+            const timeRatio = totalDur / maxDuration
             const fareRatio = monthly / maxFare
             const originalIndex = candidates.findIndex((x) => x.id === c.id)
             const color = CANDIDATE_COLORS[originalIndex % CANDIDATE_COLORS.length]
@@ -116,7 +131,7 @@ export default function CompareAnalysis({ candidates, selectedCandidateId, onSel
                   )}
                   {!isSelected && isFirst && (
                     <span className="text-xs font-medium text-yellow-600 bg-yellow-50 px-2 py-0.5 rounded-full">
-                      최단 시간
+                      {hasDest2 ? '합산 최단' : '최단 시간'}
                     </span>
                   )}
                 </div>
@@ -125,8 +140,8 @@ export default function CompareAnalysis({ candidates, selectedCandidateId, onSel
                   {/* 통근 시간 바 */}
                   <div>
                     <div className="flex justify-between items-center mb-1">
-                      <span className="text-xs text-gray-400">통근 시간</span>
-                      <span className="text-sm font-bold text-gray-800">{formatDuration(transit.duration)}</span>
+                      <span className="text-xs text-gray-400">{hasDest2 ? '합산 통근 시간' : '통근 시간'}</span>
+                      <span className="text-sm font-bold text-gray-800">{formatDuration(totalDur)}</span>
                     </div>
                     <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
                       <div
@@ -134,12 +149,24 @@ export default function CompareAnalysis({ candidates, selectedCandidateId, onSel
                         style={{ width: `${timeRatio * 100}%`, background: color }}
                       />
                     </div>
+                    {hasDest2 && transit2 && (
+                      <div className="flex gap-3 mt-1">
+                        <span className="text-xs text-gray-500 flex items-center gap-1">
+                          <span style={{ color: '#ef4444' }}>★</span>{formatDuration(transit.duration)}
+                        </span>
+                        <span className="text-xs text-gray-500 flex items-center gap-1">
+                          <span style={{ color: '#0d9488' }}>★</span>{formatDuration(transit2.duration)}
+                        </span>
+                      </div>
+                    )}
                   </div>
 
                   {/* 요금 바 */}
                   <div>
                     <div className="flex justify-between items-center mb-1">
-                      <span className="text-xs text-gray-400">월 교통비 <span className="text-gray-300">(22일 기준)</span></span>
+                      <span className="text-xs text-gray-400">
+                        {hasDest2 ? '월 교통비 합산' : '월 교통비'} <span className="text-gray-300">(22일 기준)</span>
+                      </span>
                       <span className="text-sm font-bold text-gray-800">{formatFare(monthly)}</span>
                     </div>
                     <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
@@ -148,10 +175,10 @@ export default function CompareAnalysis({ candidates, selectedCandidateId, onSel
                         style={{ width: `${fareRatio * 100}%`, background: color, opacity: 0.6 }}
                       />
                     </div>
-                    <p className="text-xs text-gray-400 mt-0.5 text-right">편도 {formatFare(transit.fare)}</p>
+                    <p className="text-xs text-gray-400 mt-0.5 text-right">편도 {formatFare(fare(c))}</p>
                   </div>
 
-                  {/* 노선 배지 */}
+                  {/* 노선 배지 (주 목적지 기준) */}
                   {transitSteps.length > 0 && (
                     <div className="flex flex-wrap gap-1 pt-1 border-t border-gray-100">
                       {transitSteps.map((step, si) => (
@@ -175,12 +202,12 @@ export default function CompareAnalysis({ candidates, selectedCandidateId, onSel
           <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
             <p className="text-xs font-semibold text-blue-700 mb-2">📋 요약</p>
             <div className="space-y-1 text-xs text-blue-800">
-              <p>⏱ 가장 빠른 곳: <strong>{ranked[0].name}</strong> ({formatDuration(ranked[0].routes.transit!.duration)})</p>
+              <p>⏱ {hasDest2 ? '합산 최단' : '가장 빠른 곳'}: <strong>{ranked[0].name}</strong> ({formatDuration(dur(ranked[0]))})</p>
               <p>💰 가장 저렴한 곳: <strong>
-                {[...ranked].sort((a, b) => a.routes.transit!.fare - b.routes.transit!.fare)[0].name}
-              </strong> (월 {formatFare(calcMonthlyFare([...ranked].sort((a, b) => a.routes.transit!.fare - b.routes.transit!.fare)[0].routes.transit!.fare))})</p>
+                {[...ranked].sort((a, b) => fare(a) - fare(b))[0].name}
+              </strong> (월 {formatFare(calcMonthlyFare(fare([...ranked].sort((a, b) => fare(a) - fare(b))[0])))})</p>
               {ranked.length > 1 && (
-                <p>🕐 시간 차이: <strong>{ranked[ranked.length - 1].routes.transit!.duration - ranked[0].routes.transit!.duration}분</strong> ({ranked[0].name} vs {ranked[ranked.length - 1].name})</p>
+                <p>🕐 시간 차이: <strong>{dur(ranked[ranked.length - 1]) - dur(ranked[0])}분</strong> ({ranked[0].name} vs {ranked[ranked.length - 1].name})</p>
               )}
             </div>
           </div>

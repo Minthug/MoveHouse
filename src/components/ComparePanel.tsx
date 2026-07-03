@@ -60,11 +60,14 @@ function KeywordPlaceSearch({
 
 interface Props {
   destination: Destination | null
+  destination2?: Destination | null
   candidates: CandidateLocation[]
   selectedCandidateId: string | null
   selectedRouteType: 'transit' | 'bus'
   onSelectCandidate: (id: string, routeType: 'transit' | 'bus') => void
   onDestinationSelect: (lat: number, lng: number, address: string) => void
+  onDestination2Select: (lat: number, lng: number, address: string) => void
+  onRemoveDestination2: () => void
   onCandidateSelect: (lat: number, lng: number, address: string) => void
   onRemoveCandidate: (id: string) => void
   onReset: () => void
@@ -81,10 +84,13 @@ interface Props {
 
 export default function ComparePanel({
   destination,
+  destination2,
   candidates,
   selectedCandidateId,
   onSelectCandidate,
   onDestinationSelect,
+  onDestination2Select,
+  onRemoveDestination2,
   onCandidateSelect,
   onRemoveCandidate,
   onReset,
@@ -107,6 +113,7 @@ export default function ComparePanel({
     return (
       <CompareAnalysis
         candidates={candidates}
+        hasDest2={!!destination2}
         selectedCandidateId={selectedCandidateId}
         onSelectCandidate={(id) => onSelectCandidate(id, 'transit')}
         onBack={() => setShowAnalysis(false)}
@@ -165,6 +172,34 @@ export default function ComparePanel({
             <span className="text-red-500 text-sm">★</span>
             <span className="text-sm text-red-700 truncate flex-1">{destination.name}</span>
           </div>
+        )}
+
+        {/* 두 번째 목적지 (다인 통근 비교) */}
+        {destination && (
+          destination2 ? (
+            <div className="flex items-center gap-2 rounded-lg px-3 py-2" style={{ background: '#f0fdfa' }}>
+              <span className="text-sm" style={{ color: '#0d9488' }}>★</span>
+              <span className="text-sm truncate flex-1" style={{ color: '#0f766e' }}>{destination2.name}</span>
+              <button
+                onClick={onRemoveDestination2}
+                className="text-gray-300 hover:text-gray-500 text-base leading-none transition-colors shrink-0"
+                title="두 번째 목적지 제거"
+              >
+                ×
+              </button>
+            </div>
+          ) : (
+            <div className="pt-0.5">
+              <div className="flex items-center gap-2 mb-1.5">
+                <span className="w-4 h-4 rounded-full flex items-center justify-center text-white text-[10px] shrink-0" style={{ background: '#0d9488' }}>★</span>
+                <span className="text-xs font-medium text-gray-500">두 번째 목적지 (예: 배우자 회사)</span>
+              </div>
+              <SearchBar
+                placeholder="두 번째 목적지 주소 (선택)"
+                onSelect={onDestination2Select}
+              />
+            </div>
+          )
         )}
 
         {destination && (
@@ -252,6 +287,7 @@ export default function ComparePanel({
             index={i}
             selected={selectedCandidateId === c.id}
             selectedRouteType={selectedRouteType}
+            hasDest2={!!destination2}
             onSelect={onSelectCandidate}
             onRemove={onRemoveCandidate}
             onMemoChange={onMemoChange}

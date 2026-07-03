@@ -67,6 +67,7 @@ const EASE = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 
 interface Props {
   mode: AppMode
   destination: Destination | null
+  destination2?: Destination | null
   candidates: CandidateLocation[]
   selectedCandidateId: string | null
   selectedRouteType: 'transit' | 'bus'
@@ -74,7 +75,7 @@ interface Props {
   onDistrictClick: (name: string, lat: number, lng: number) => void
 }
 
-export default function SeoulMap({ mode, destination, candidates, selectedCandidateId, selectedRouteType, nearbyPlaces, onDistrictClick }: Props) {
+export default function SeoulMap({ mode, destination, destination2, candidates, selectedCandidateId, selectedRouteType, nearbyPlaces, onDistrictClick }: Props) {
   const [guData, setGuData] = useState<SeoulData | null>(null)
   const [dongData, setDongData] = useState<DongSeoulData | null>(null)
   const [viewMode, setViewMode] = useState<'gu' | 'dong'>('gu')
@@ -195,18 +196,23 @@ export default function SeoulMap({ mode, destination, candidates, selectedCandid
   // 표시할 경로선: 토글된 모든 후보지의 steps 합산
   const allRouteSegments = candidates.flatMap((c, i) => {
     if (!routeVisible.has(c.id)) return []
+    const color = CANDIDATE_COLORS[i % CANDIDATE_COLORS.length]
     const route = (selectedRouteType === 'bus' ? c.routes.bus : null) ?? c.routes.transit
     const steps = route?.steps?.filter((s) => s.coords && s.coords.length >= 2) ?? []
-    return steps.map((s) => ({
-      ...s,
-      candidateId: c.id,
-      candidateColor: CANDIDATE_COLORS[i % CANDIDATE_COLORS.length],
-    }))
+    const segs = steps.map((s) => ({ ...s, candidateId: c.id, candidateColor: color, isDest2: false }))
+    // 보조 목적지 경로도 함께 표시 (점선으로 구분)
+    if (destination2) {
+      const route2 = (selectedRouteType === 'bus' ? c.routes2?.bus : null) ?? c.routes2?.transit
+      const steps2 = route2?.steps?.filter((s) => s.coords && s.coords.length >= 2) ?? []
+      segs.push(...steps2.map((s) => ({ ...s, candidateId: c.id, candidateColor: color, isDest2: true })))
+    }
+    return segs
   })
 
   // Destination district info
   const destGu = destination ? extractGuName(destination.name) ?? destination.name : null
   const destDong = destination ? extractDongName(destination.name) : null
+  const dest2Gu = destination2 ? extractGuName(destination2.name) ?? destination2.name : null
 
   // Candidate district info
   const candGus = candidates.map((c) => extractGuName(c.name) ?? c.name)
@@ -224,6 +230,12 @@ export default function SeoulMap({ mode, destination, candidates, selectedCandid
       const cy = g ? g.cy : LAT_TO_SVG(destination.lat)
       pins.push({ cx, cy, color: '#ef4444', glyph: '★', dimmed: false })
     }
+    if (destination2) {
+      const g = guData.districts.find((d) => d.name === dest2Gu)
+      const cx = g ? g.cx : LNG_TO_SVG(destination2.lng)
+      const cy = g ? g.cy : LAT_TO_SVG(destination2.lat)
+      pins.push({ cx, cy, color: '#0d9488', glyph: '★', dimmed: false })
+    }
     candidates.forEach((c, i) => {
       const g = guData.districts.find((d) => d.name === candGus[i])
       const cx = g ? g.cx : LNG_TO_SVG(c.lng)
@@ -237,6 +249,11 @@ export default function SeoulMap({ mode, destination, candidates, selectedCandid
       const sx = LNG_TO_SVG(destination.lng)
       const sy = LAT_TO_SVG(destination.lat)
       pins.push({ cx: sx, cy: sy, color: '#ef4444', glyph: '★', dimmed: false })
+    }
+    if (destination2 && dest2Gu === selGu.name) {
+      const sx = LNG_TO_SVG(destination2.lng)
+      const sy = LAT_TO_SVG(destination2.lat)
+      pins.push({ cx: sx, cy: sy, color: '#0d9488', glyph: '★', dimmed: false })
     }
     candidates.forEach((c, i) => {
       if (candGus[i] !== selGu.name) return
@@ -426,6 +443,10 @@ export default function SeoulMap({ mode, destination, candidates, selectedCandid
           const dimmed = selectedCandidateId !== null && selectedCandidateId !== seg.candidateId
           const lineColor = isWalk ? '#9ca3af' : (seg.color ?? seg.candidateColor)
           const lw = mapScale * (isWalk ? 4 : 7)
+          // 보조 목적지(B) 경로는 점선으로 구분
+          const dash = isWalk
+            ? `${8 * mapScale},${7 * mapScale}`
+            : (seg.isDest2 ? `${11 * mapScale},${7 * mapScale}` : undefined)
           return (
             <g key={i} style={{ pointerEvents: 'none' }} opacity={dimmed ? 0.25 : 1}>
               {!isWalk && (
@@ -436,7 +457,7 @@ export default function SeoulMap({ mode, destination, candidates, selectedCandid
                 fill="none"
                 stroke={lineColor}
                 strokeWidth={lw}
-                strokeDasharray={isWalk ? `${8 * mapScale},${7 * mapScale}` : undefined}
+                strokeDasharray={dash}
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 opacity={isWalk ? 0.65 : 0.9}
@@ -581,6 +602,12 @@ export default function SeoulMap({ mode, destination, candidates, selectedCandid
             <div className="flex items-center gap-2 pointer-events-none">
               <span className="w-3 h-3 rounded-full bg-red-500 flex items-center justify-center text-white text-[7px] shrink-0">★</span>
               <span className="text-[11px] text-gray-600 truncate max-w-[80px]">{destGu ?? destination.name}</span>
+            </div>
+          )}
+          {destination2 && (
+            <div className="flex items-center gap-2 pointer-events-none">
+              <span className="w-3 h-3 rounded-full flex items-center justify-center text-white text-[7px] shrink-0" style={{ background: '#0d9488' }}>★</span>
+              <span className="text-[11px] text-gray-600 truncate max-w-[80px]">{dest2Gu ?? destination2.name}</span>
             </div>
           )}
           {candidates.map((c, i) => {

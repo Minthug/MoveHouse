@@ -32,9 +32,12 @@ export interface CandidateRoutes {
 
 export interface CandidateLocation extends Location {
   label: string // A, B, C, D, E
-  routes: CandidateRoutes
+  routes: CandidateRoutes    // → 주 목적지(destination)
+  routes2?: CandidateRoutes  // → 보조 목적지(destination2), 없으면 미설정
   loading: boolean
+  loading2?: boolean
   error?: string
+  error2?: string
   memo?: string
 }
 

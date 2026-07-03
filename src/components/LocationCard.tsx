@@ -129,20 +129,23 @@ interface Props {
   index: number
   selected: boolean
   selectedRouteType: 'transit' | 'bus'
+  hasDest2?: boolean
   onSelect: (id: string, routeType: 'transit' | 'bus') => void
   onRemove: (id: string) => void
   onMemoChange: (id: string, memo: string) => void
 }
 
-export default function LocationCard({ candidate, index, selected, selectedRouteType, onSelect, onRemove, onMemoChange }: Props) {
+export default function LocationCard({ candidate, index, selected, selectedRouteType, hasDest2, onSelect, onRemove, onMemoChange }: Props) {
   const color = CANDIDATE_COLORS[index % CANDIDATE_COLORS.length]
   const [memoOpen, setMemoOpen] = useState(false)
   const [memoValue, setMemoValue] = useState(candidate.memo ?? '')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const { transit, bus } = candidate.routes
+  const transit2 = candidate.routes2?.transit
   const hasBus = bus != null  // null(조회완료/차이없음)과 RouteResult 구분
   const activeRoute = selected ? (selectedRouteType === 'bus' && hasBus ? bus! : transit) : transit
   const monthlyFare = activeRoute?.fare ? calcMonthlyFare(activeRoute.fare) : null
+  const combined = transit && transit2 ? transit.duration + transit2.duration : null
 
   const hasRoute = !candidate.loading && !!transit
 
@@ -161,7 +164,7 @@ export default function LocationCard({ candidate, index, selected, selectedRoute
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-gray-800 truncate">{candidate.name}</p>
-          {transit && !candidate.loading && (
+          {transit && !candidate.loading && !hasDest2 && (
             <div className="mt-0.5 space-y-0.5">
               <p className="text-xs text-gray-500">
                 🚇 {formatDuration(transit.duration)} · {formatFare(transit.fare)}
@@ -171,6 +174,31 @@ export default function LocationCard({ candidate, index, selected, selectedRoute
                 <p className="text-xs text-green-600">
                   🚌 {formatDuration(bus!.duration)} · {formatFare(bus!.fare)}
                 </p>
+              )}
+            </div>
+          )}
+          {transit && !candidate.loading && hasDest2 && (
+            <div className="mt-1 space-y-0.5">
+              <p className="text-xs text-gray-600 flex items-center gap-1">
+                <span style={{ color: '#ef4444' }}>★</span>
+                {formatDuration(transit.duration)} · {formatFare(transit.fare)}
+              </p>
+              {candidate.loading2 ? (
+                <p className="text-xs text-gray-400 flex items-center gap-1">
+                  <span style={{ color: '#0d9488' }}>★</span> 계산 중…
+                </p>
+              ) : transit2 ? (
+                <p className="text-xs text-gray-600 flex items-center gap-1">
+                  <span style={{ color: '#0d9488' }}>★</span>
+                  {formatDuration(transit2.duration)} · {formatFare(transit2.fare)}
+                </p>
+              ) : candidate.error2 ? (
+                <p className="text-xs text-red-400 flex items-center gap-1">
+                  <span style={{ color: '#0d9488' }}>★</span> 경로 없음
+                </p>
+              ) : null}
+              {combined != null && (
+                <p className="text-xs font-semibold text-gray-700">합계 {formatDuration(combined)}</p>
               )}
             </div>
           )}
@@ -229,6 +257,11 @@ export default function LocationCard({ candidate, index, selected, selectedRoute
       {/* 상세 경로 — 선택됐을 때만 */}
       {selected && hasRoute && (
         <div className="px-4 pb-4 border-t border-gray-100 pt-3 space-y-2">
+          {hasDest2 && (
+            <p className="text-xs font-medium text-gray-500 flex items-center gap-1">
+              <span style={{ color: '#ef4444' }}>★</span> 첫 번째 목적지 경로
+            </p>
+          )}
           <p className="text-xs text-gray-400 mb-1">경로 선택 (클릭하면 지도에 표시)</p>
           <RouteDetailCard
             icon="🚇"
@@ -248,6 +281,20 @@ export default function LocationCard({ candidate, index, selected, selectedRoute
           )}
           {(selectedRouteType === 'transit' ? transit : bus)?.steps && (
             <RouteSteps steps={(selectedRouteType === 'transit' ? transit : bus)!.steps!} />
+          )}
+
+          {/* 두 번째 목적지 경로 (지도에선 점선) */}
+          {hasDest2 && transit2 && (
+            <div className="pt-2 mt-1 border-t border-gray-100 space-y-1">
+              <p className="text-xs font-medium text-gray-500 flex items-center gap-1">
+                <span style={{ color: '#0d9488' }}>★</span> 두 번째 목적지 경로
+                <span className="text-gray-300 font-normal">· 지도에선 점선</span>
+              </p>
+              <p className="text-xs text-gray-500">
+                🚇 {formatDuration(transit2.duration)} · {formatFare(transit2.fare)}
+              </p>
+              {transit2.steps && <RouteSteps steps={transit2.steps} />}
+            </div>
           )}
         </div>
       )}

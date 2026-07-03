@@ -32,6 +32,11 @@ export default function App() {
     if (shared) return { id: makeId(), ...shared.dest }
     return readLocal('commute-destination', null)
   })
+  const [destination2, setDestination2] = useState<Destination | null>(() => {
+    const shared = decodeShare()
+    if (shared) return shared.dest2 ? { id: makeId(), ...shared.dest2 } : null
+    return readLocal('commute-destination2', null)
+  })
   const [candidates, setCandidates] = useState<CandidateLocation[]>(() => {
     const shared = decodeShare()
     if (shared) {
@@ -83,6 +88,7 @@ export default function App() {
 
   // localStorage 동기화
   useEffect(() => { writeLocal('commute-destination', destination) }, [destination])
+  useEffect(() => { writeLocal('commute-destination2', destination2) }, [destination2])
   useEffect(() => {
     writeLocal('commute-candidates', candidates.map((c) => ({ ...c, loading: false })))
   }, [candidates])
@@ -113,6 +119,20 @@ export default function App() {
         ))
         .catch(() => {})
     }
+
+    // 보조 목적지가 있는데 routes2 없는 후보지: routes2 재조회
+    if (destination2) {
+      const noRoutes2 = candidates.filter((c) => !c.routes2?.transit && !c.error2)
+      for (const c of noRoutes2) {
+        fetchRoutes({ lat: c.lat, lng: c.lng }, destination2)
+          .then((routes2) => setCandidates((prev) =>
+            prev.map((p) => p.id === c.id ? { ...p, loading2: false, routes2 } : p),
+          ))
+          .catch(() => setCandidates((prev) =>
+            prev.map((p) => p.id === c.id ? { ...p, loading2: false, error2: '경로를 가져오지 못했어요' } : p),
+          ))
+      }
+    }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   function addCandidate(lat: number, lng: number, name: string, dest: Destination) {
@@ -123,7 +143,8 @@ export default function App() {
     const id = makeId()
     const label = LABELS[candidates.length]
 
-    setCandidates((prev) => [...prev, { id, lat, lng, name, label, routes: {}, loading: true }])
+    const hasDest2 = !!destination2
+    setCandidates((prev) => [...prev, { id, lat, lng, name, label, routes: {}, loading: true, loading2: hasDest2 }])
 
     fetchRoutes({ lat, lng }, dest)
       .then((routes) => {
@@ -138,6 +159,42 @@ export default function App() {
           ),
         )
       })
+
+    if (destination2) {
+      fetchRoutes({ lat, lng }, destination2)
+        .then((routes2) => {
+          setCandidates((prev) =>
+            prev.map((c) => (c.id === id ? { ...c, loading2: false, routes2 } : c)),
+          )
+        })
+        .catch(() => {
+          setCandidates((prev) =>
+            prev.map((c) =>
+              c.id === id ? { ...c, loading2: false, error2: '경로를 가져오지 못했어요' } : c,
+            ),
+          )
+        })
+    }
+  }
+
+  // 보조 목적지 설정: 기존 후보지 전체에 대해 routes2 재조회
+  function setDestination2AndFetch(dest2: Destination) {
+    setDestination2(dest2)
+    setCandidates((prev) => prev.map((c) => ({ ...c, loading2: true, routes2: undefined, error2: undefined })))
+    candidates.forEach((c) => {
+      fetchRoutes({ lat: c.lat, lng: c.lng }, dest2)
+        .then((routes2) => setCandidates((prev) =>
+          prev.map((p) => p.id === c.id ? { ...p, loading2: false, routes2 } : p),
+        ))
+        .catch(() => setCandidates((prev) =>
+          prev.map((p) => p.id === c.id ? { ...p, loading2: false, error2: '경로를 가져오지 못했어요' } : p),
+        ))
+    })
+  }
+
+  function handleRemoveDestination2() {
+    setDestination2(null)
+    setCandidates((prev) => prev.map((c) => ({ ...c, routes2: undefined, loading2: false, error2: undefined })))
   }
 
   const handleDistrictClick = useCallback(
@@ -158,6 +215,10 @@ export default function App() {
 
   function handleCandidateSelect(lat: number, lng: number, address: string) {
     if (destination) addCandidate(lat, lng, address, destination)
+  }
+
+  function handleDestination2Select(lat: number, lng: number, address: string) {
+    setDestination2AndFetch({ id: makeId(), lat, lng, name: address, type: 'work' })
   }
 
   function handleRemoveCandidate(id: string) {
@@ -212,16 +273,18 @@ export default function App() {
 
   function handleReset() {
     setDestination(null)
+    setDestination2(null)
     setCandidates([])
     setSelectedCandidateId(null)
     localStorage.removeItem('commute-destination')
+    localStorage.removeItem('commute-destination2')
     localStorage.removeItem('commute-candidates')
     window.history.replaceState(null, '', window.location.pathname)
   }
 
   function handleShare() {
     if (!destination || candidates.length === 0) return
-    const url = encodeShare(destination, candidates)
+    const url = encodeShare(destination, candidates, destination2)
     navigator.clipboard.writeText(url).then(() => {
       alert('공유 링크가 클립보드에 복사됐어요!')
     }).catch(() => {
@@ -235,6 +298,7 @@ export default function App() {
         <SeoulMap
           mode={mode}
           destination={destination}
+          destination2={destination2}
           candidates={candidates}
           selectedCandidateId={selectedCandidateId}
           selectedRouteType={selectedRouteType}
@@ -245,6 +309,7 @@ export default function App() {
       <div className="w-[360px] shrink-0 flex flex-col overflow-hidden">
         <ComparePanel
           destination={destination}
+          destination2={destination2}
           candidates={candidates}
           selectedCandidateId={selectedCandidateId}
           selectedRouteType={selectedRouteType}
@@ -254,6 +319,8 @@ export default function App() {
             if (!isSameIdAndType) setSelectedRouteType(routeType)
           }}
           onDestinationSelect={handleDestinationSelect}
+          onDestination2Select={handleDestination2Select}
+          onRemoveDestination2={handleRemoveDestination2}
           onCandidateSelect={handleCandidateSelect}
           onRemoveCandidate={handleRemoveCandidate}
           onReset={handleReset}
