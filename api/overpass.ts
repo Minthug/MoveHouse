@@ -20,7 +20,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const upstream = await fetch('https://overpass-api.de/api/interpreter', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      // overpass-api.de는 UA 없는/브라우저 UA 요청을 406으로 차단 → 식별용 UA 필수
+      'User-Agent': 'commute-compare/1.0 (https://move-house.vercel.app)',
+    },
     body: body.toString(),
   })
 

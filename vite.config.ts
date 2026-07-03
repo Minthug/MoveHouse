@@ -15,6 +15,8 @@ export default defineConfig(({ mode }) => {
           target: 'https://overpass-api.de',
           changeOrigin: true,
           rewrite: (path) => path.replace(/^\/api\/overpass/, '/api/interpreter'),
+          // overpass-api.de는 브라우저 UA를 406으로 차단 → 식별용 UA로 교체
+          headers: { 'User-Agent': 'commute-compare/1.0 (https://move-house.vercel.app)' },
         },
         '/api/transit': {
           target: 'https://api.odsay.com',
