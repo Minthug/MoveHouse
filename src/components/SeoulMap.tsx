@@ -470,7 +470,8 @@ export default function SeoulMap({ mode, destination, destination2, candidates, 
         {nearbyPlaces.map((place) => {
           const x = LNG_TO_SVG(place.lng)
           const y = LAT_TO_SVG(place.lat)
-          if (x < -50 || x > 1050 || y < -50 || y > 850) return null
+          // 수도권(통근권) 좌표 범위 밖만 컬링 — 예전 서울 전용 범위(1050×850)는 분당·하남 등 근교 마커를 잘라냈음
+          if (x < -700 || x > 1550 || y < -350 || y > 1300) return null
           const cfg = place.category === 'CUSTOM'
             ? { color: '#6b7280', emoji: '📍' }
             : PLACE_CATEGORIES[place.category as keyof typeof PLACE_CATEGORIES]

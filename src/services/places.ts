@@ -154,7 +154,18 @@ export async function fetchNearbyPlaces(
     })
   }
 
-  const sorted = results.sort((a, b) => a.distance - b.distance).slice(0, 30)
+  // 위치(sourceId)별로 가까운 순 최대 10개씩 — 전역 컷이면 밀집 지역이 슬롯을 독식해
+  // 다른 후보지 주변엔 하나도 안 남는 문제가 있었음
+  const PER_LOCATION = 10
+  const byRef = new Map<string, NearbyPlace[]>()
+  for (const r of results.sort((a, b) => a.distance - b.distance)) {
+    const bucket = byRef.get(r.sourceId) ?? []
+    if (bucket.length < PER_LOCATION) {
+      bucket.push(r)
+      byRef.set(r.sourceId, bucket)
+    }
+  }
+  const sorted = [...byRef.values()].flat().sort((a, b) => a.distance - b.distance)
   overpassCache.set(cacheKey, sorted)
   return sorted
 }
