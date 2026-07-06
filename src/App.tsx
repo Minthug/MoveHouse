@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import SeoulMap from './components/SeoulMap'
 import ComparePanel from './components/ComparePanel'
+import HomeView from './components/HomeView'
 import { useDirections } from './hooks/useDirections'
 import { fetchNearbyPlaces, searchPlacesByKeyword, clearOverpassCache } from './services/places'
 import type { PlaceCategory, NearbyPlace } from './services/places'
@@ -84,6 +85,8 @@ export default function App() {
   const setDestination2 = (v: Upd<Destination | null>) => patchActive((b) => ({ destination2: applyUpd(v, b.destination2) }))
   const setCandidates = (v: Upd<CandidateLocation[]>) => patchActive((b) => ({ candidates: applyUpd(v, b.candidates) }))
 
+  // 홈(비교 목록) ↔ 보드(지도+패널). 공유 링크로 들어오면 바로 보드.
+  const [view, setView] = useState<'home' | 'board'>(() => (decodeShare() ? 'board' : 'home'))
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null)
   const [selectedRouteType, setSelectedRouteType] = useState<'transit' | 'bus'>('transit')
   const [activePlaceCategories, setActivePlaceCategories] = useState<Set<PlaceCategory>>(new Set())
@@ -332,15 +335,21 @@ export default function App() {
   }
 
   // 보드 조작
-  function selectBoard(id: string) {
+  function openBoard(id: string) {
     setActiveBoardId(id)
     setSelectedCandidateId(null)
+    setView('board')
+  }
+  function goHome() {
+    setSelectedCandidateId(null)
+    setView('home')
   }
   function addBoard() {
     const nb: Board = { id: makeId(), name: `비교 ${boards.length + 1}`, destination: null, destination2: null, candidates: [] }
     setBoards((prev) => [...prev, nb])
     setActiveBoardId(nb.id)
     setSelectedCandidateId(null)
+    setView('board')
   }
   function renameBoard(id: string, name: string) {
     setBoards((prev) => prev.map((b) => b.id === id ? { ...b, name: name.trim() || b.name } : b))
@@ -349,7 +358,7 @@ export default function App() {
     if (boards.length <= 1) return
     const next = boards.filter((b) => b.id !== id)
     setBoards(next)
-    if (id === activeBoardId) { setActiveBoardId(next[0].id); setSelectedCandidateId(null) }
+    if (id === activeBoardId) setActiveBoardId(next[0].id)
   }
 
   function handleShare() {
@@ -360,6 +369,18 @@ export default function App() {
     }).catch(() => {
       prompt('아래 링크를 복사하세요:', url)
     })
+  }
+
+  if (view === 'home') {
+    return (
+      <HomeView
+        boards={boards}
+        onOpen={openBoard}
+        onAdd={addBoard}
+        onRename={renameBoard}
+        onDelete={deleteBoard}
+      />
+    )
   }
 
   return (
@@ -378,12 +399,8 @@ export default function App() {
       </div>
       <div className="w-[360px] shrink-0 flex flex-col overflow-hidden">
         <ComparePanel
-          boards={boards.map((b) => ({ id: b.id, name: b.name }))}
-          activeBoardId={activeBoardId}
-          onSelectBoard={selectBoard}
-          onAddBoard={addBoard}
-          onRenameBoard={renameBoard}
-          onDeleteBoard={deleteBoard}
+          boardName={activeBoard?.name ?? ''}
+          onBackHome={goHome}
           destination={destination}
           destination2={destination2}
           candidates={candidates}
