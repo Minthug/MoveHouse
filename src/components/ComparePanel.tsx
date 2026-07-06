@@ -134,9 +134,10 @@ export default function ComparePanel({
         <div className="min-w-0">
           <button
             onClick={onBackHome}
-            className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-700 transition-colors mb-1"
+            className="inline-flex items-center gap-1 text-xs font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 px-2.5 py-1 rounded-full transition-colors mb-2"
+            title="비교 목록으로"
           >
-            ← 내 비교
+            <span className="text-sm leading-none">‹</span> 내 비교 목록
           </button>
           <h1 className="text-base font-bold text-gray-900 truncate">{boardName || '이사 통근 비교'}</h1>
         </div>
