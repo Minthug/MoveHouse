@@ -39,6 +39,7 @@ export interface CandidateLocation extends Location {
   error?: string
   error2?: string
   memo?: string
+  rent?: number // 월세 (원). 실질 월 비용 = 월세 + 월 교통비
 }
 
 export type AppMode = 'set-destination' | 'add-candidate'

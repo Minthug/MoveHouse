@@ -63,9 +63,15 @@ export default function CompareAnalysis({ candidates, hasDest2, selectedCandidat
   const fare = (c: CandidateLocation) =>
     (c.routes.transit?.fare ?? 0) + (hasDest2 ? (c.routes2?.transit?.fare ?? 0) : 0)
 
+  // 실질 월 비용 = 월세 + 월 교통비 (월세 입력된 후보지만)
+  const realCost = (c: CandidateLocation): number | null =>
+    c.rent != null ? c.rent + calcMonthlyFare(fare(c)) : null
+
   const ranked = [...ready].sort((a, b) => dur(a) - dur(b))
   const maxDuration = Math.max(...ranked.map(dur), 1)
   const maxFare = Math.max(...ranked.map((c) => calcMonthlyFare(fare(c))), 1)
+  const realCosts = ranked.map(realCost).filter((v): v is number => v != null)
+  const minRealCost = realCosts.length ? Math.min(...realCosts) : null
 
   // 후보지별 환승·도보 (두 목적지면 합산)
   const stats = new Map(
@@ -88,11 +94,16 @@ export default function CompareAnalysis({ candidates, hasDest2, selectedCandidat
   function badges(c: CandidateLocation): string[] {
     const st = stats.get(c.id)!
     const out: string[] = []
+    // 월세가 2곳 이상 입력돼 실질 비교가 가능하면 '저렴'은 실질 기준, 아니면 교통비 기준
+    const realCostComparable = realCosts.length >= 2 && new Set(realCosts).size > 1
     if (vary(durs) && dur(c) === minDur) out.push('⚡ 가장 빠름')
-    if (vary(fares) && fare(c) === minFare) out.push('💰 가장 저렴')
+    if (!realCostComparable && vary(fares) && fare(c) === minFare) out.push('💰 교통비 최저')
     if (st.transfers === minTransfers && (st.transfers === 0 || vary(transfersArr)))
       out.push(st.transfers === 0 ? '🔁 환승 없음' : '🔁 환승 최소')
     if (vary(walksArr) && st.walk === minWalk) out.push('🚶 도보 최소')
+    const rc = realCost(c)
+    if (rc != null && minRealCost != null && rc === minRealCost && realCostComparable)
+      out.push('💵 실질 최저')
     return out
   }
 
@@ -234,6 +245,14 @@ export default function CompareAnalysis({ candidates, hasDest2, selectedCandidat
                     </div>
                     <p className="text-xs text-gray-400 mt-0.5 text-right">편도 {formatFare(fare(c))}</p>
                   </div>
+
+                  {/* 실질 월 비용 (월세 + 교통비) */}
+                  {realCost(c) != null && (
+                    <div className="flex justify-between items-center pt-1 border-t border-gray-100">
+                      <span className="text-xs text-gray-500">🏠 실질 월 비용 <span className="text-gray-300">(월세+교통)</span></span>
+                      <span className="text-sm font-bold text-gray-900">{formatFare(realCost(c)!)}</span>
+                    </div>
+                  )}
 
                   {/* 노선 배지 (주 목적지 기준) */}
                   {transitSteps.length > 0 && (

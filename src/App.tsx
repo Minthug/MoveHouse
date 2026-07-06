@@ -274,6 +274,10 @@ export default function App() {
     setCandidates((prev) => prev.map((c) => c.id === id ? { ...c, memo } : c))
   }
 
+  function handleRentChange(id: string, rent: number | undefined) {
+    setCandidates((prev) => prev.map((c) => c.id === id ? { ...c, rent } : c))
+  }
+
   function handleReset() {
     setDestination(null)
     setDestination2(null)
@@ -336,6 +340,7 @@ export default function App() {
           onKeywordSearch={handleKeywordSearch}
           onClearCustomPlaces={() => setCustomPlaces([])}
           onMemoChange={handleMemoChange}
+          onRentChange={handleRentChange}
         />
       </div>
     </div>

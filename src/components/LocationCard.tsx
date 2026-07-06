@@ -133,12 +133,14 @@ interface Props {
   onSelect: (id: string, routeType: 'transit' | 'bus') => void
   onRemove: (id: string) => void
   onMemoChange: (id: string, memo: string) => void
+  onRentChange: (id: string, rent: number | undefined) => void
 }
 
-export default function LocationCard({ candidate, index, selected, selectedRouteType, hasDest2, onSelect, onRemove, onMemoChange }: Props) {
+export default function LocationCard({ candidate, index, selected, selectedRouteType, hasDest2, onSelect, onRemove, onMemoChange, onRentChange }: Props) {
   const color = CANDIDATE_COLORS[index % CANDIDATE_COLORS.length]
   const [memoOpen, setMemoOpen] = useState(false)
   const [memoValue, setMemoValue] = useState(candidate.memo ?? '')
+  const [rentValue, setRentValue] = useState(candidate.rent != null ? String(candidate.rent / 10000) : '')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const { transit, bus } = candidate.routes
   const transit2 = candidate.routes2?.transit
@@ -146,6 +148,12 @@ export default function LocationCard({ candidate, index, selected, selectedRoute
   const activeRoute = selected ? (selectedRouteType === 'bus' && hasBus ? bus! : transit) : transit
   const monthlyFare = activeRoute?.fare ? calcMonthlyFare(activeRoute.fare) : null
   const combined = transit && transit2 ? transit.duration + transit2.duration : null
+
+  // 실질 월 비용 = 월세 + 월 교통비(두 목적지면 합산)
+  const monthlyTransit =
+    (transit?.fare ? calcMonthlyFare(transit.fare) : 0) +
+    (hasDest2 && transit2?.fare ? calcMonthlyFare(transit2.fare) : 0)
+  const realCost = candidate.rent != null ? candidate.rent + monthlyTransit : null
 
   const hasRoute = !candidate.loading && !!transit
 
@@ -202,6 +210,12 @@ export default function LocationCard({ candidate, index, selected, selectedRoute
               )}
             </div>
           )}
+          {realCost != null && !candidate.loading && (
+            <p className="text-xs mt-1 font-semibold" style={{ color: '#111827' }}>
+              🏠 실질 월 {formatFare(realCost)}
+              <span className="text-gray-400 font-normal"> (월세 {formatFare(candidate.rent!)} + 교통 {formatFare(monthlyTransit)})</span>
+            </p>
+          )}
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {hasRoute && (
@@ -229,8 +243,27 @@ export default function LocationCard({ candidate, index, selected, selectedRoute
         <p className="text-xs text-red-400 px-4 pb-4">{candidate.error}</p>
       )}
 
+      {/* 월세 입력 (실질 비용용) */}
+      <div className="px-4 pt-2 pb-1 border-t border-gray-50 flex items-center gap-2">
+        <span className="text-xs text-gray-400 shrink-0">🏠 월세</span>
+        <input
+          type="number"
+          inputMode="numeric"
+          value={rentValue}
+          onClick={(e) => e.stopPropagation()}
+          onChange={(e) => setRentValue(e.target.value)}
+          onBlur={() => {
+            const v = parseFloat(rentValue)
+            onRentChange(candidate.id, isNaN(v) || v <= 0 ? undefined : Math.round(v * 10000))
+          }}
+          placeholder="예: 50"
+          className="w-20 text-xs border border-gray-200 rounded-lg px-2 py-1 outline-none focus:ring-2 focus:ring-blue-200 text-gray-700 placeholder-gray-300"
+        />
+        <span className="text-xs text-gray-400">만원</span>
+      </div>
+
       {/* 메모 */}
-      <div className="px-4 pb-3 border-t border-gray-50">
+      <div className="px-4 pb-3">
         <button
           onClick={() => {
             setMemoOpen((v) => !v)

@@ -80,6 +80,7 @@ interface Props {
   onKeywordSearch: (keyword: string) => void
   onClearCustomPlaces: () => void
   onMemoChange: (id: string, memo: string) => void
+  onRentChange: (id: string, rent: number | undefined) => void
 }
 
 export default function ComparePanel({
@@ -104,6 +105,7 @@ export default function ComparePanel({
   onKeywordSearch,
   onClearCustomPlaces,
   onMemoChange,
+  onRentChange,
 }: Props) {
   const [showAnalysis, setShowAnalysis] = useState(false)
   const readyCandidates = candidates.filter((c) => c.routes.transit && !c.loading)
@@ -291,6 +293,7 @@ export default function ComparePanel({
             onSelect={onSelectCandidate}
             onRemove={onRemoveCandidate}
             onMemoChange={onMemoChange}
+            onRentChange={onRentChange}
           />
         ))}
 
