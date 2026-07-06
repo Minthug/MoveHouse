@@ -59,6 +59,12 @@ function KeywordPlaceSearch({
 }
 
 interface Props {
+  boards: { id: string; name: string }[]
+  activeBoardId: string
+  onSelectBoard: (id: string) => void
+  onAddBoard: () => void
+  onRenameBoard: (id: string, name: string) => void
+  onDeleteBoard: (id: string) => void
   destination: Destination | null
   destination2?: Destination | null
   candidates: CandidateLocation[]
@@ -83,7 +89,71 @@ interface Props {
   onRentChange: (id: string, rent: number | undefined) => void
 }
 
+function BoardTabs({
+  boards,
+  activeBoardId,
+  onSelectBoard,
+  onAddBoard,
+  onRenameBoard,
+  onDeleteBoard,
+}: {
+  boards: { id: string; name: string }[]
+  activeBoardId: string
+  onSelectBoard: (id: string) => void
+  onAddBoard: () => void
+  onRenameBoard: (id: string, name: string) => void
+  onDeleteBoard: (id: string) => void
+}) {
+  return (
+    <div className="flex items-center gap-1 px-2 py-1.5 bg-gray-100 border-b border-gray-200 overflow-x-auto scrollbar-none">
+      {boards.map((b) => {
+        const active = b.id === activeBoardId
+        return (
+          <div
+            key={b.id}
+            onClick={() => onSelectBoard(b.id)}
+            onDoubleClick={() => {
+              const name = window.prompt('보드 이름', b.name)
+              if (name != null) onRenameBoard(b.id, name)
+            }}
+            title="더블클릭하면 이름 변경"
+            className={`group flex items-center gap-1 shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-colors ${
+              active ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:bg-gray-200'
+            }`}
+          >
+            <span className="max-w-[110px] truncate">{b.name}</span>
+            {boards.length > 1 && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  if (window.confirm(`'${b.name}' 보드를 삭제할까요?`)) onDeleteBoard(b.id)
+                }}
+                className="text-gray-300 hover:text-red-400 leading-none opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                ×
+              </button>
+            )}
+          </div>
+        )
+      })}
+      <button
+        onClick={onAddBoard}
+        title="새 비교 보드"
+        className="shrink-0 w-7 h-7 rounded-lg text-gray-400 hover:bg-gray-200 hover:text-gray-700 transition-colors text-base leading-none"
+      >
+        +
+      </button>
+    </div>
+  )
+}
+
 export default function ComparePanel({
+  boards,
+  activeBoardId,
+  onSelectBoard,
+  onAddBoard,
+  onRenameBoard,
+  onDeleteBoard,
   destination,
   destination2,
   candidates,
@@ -111,20 +181,37 @@ export default function ComparePanel({
   const readyCandidates = candidates.filter((c) => c.routes.transit && !c.loading)
   const canCompare = readyCandidates.length >= 2
 
+  const boardTabs = (
+    <BoardTabs
+      boards={boards}
+      activeBoardId={activeBoardId}
+      onSelectBoard={onSelectBoard}
+      onAddBoard={onAddBoard}
+      onRenameBoard={onRenameBoard}
+      onDeleteBoard={onDeleteBoard}
+    />
+  )
+
   if (showAnalysis) {
     return (
-      <CompareAnalysis
-        candidates={candidates}
-        hasDest2={!!destination2}
-        selectedCandidateId={selectedCandidateId}
-        onSelectCandidate={(id) => onSelectCandidate(id, 'transit')}
-        onBack={() => setShowAnalysis(false)}
-      />
+      <div className="flex flex-col h-full bg-gray-50 border-l border-gray-200">
+        {boardTabs}
+        <div className="flex-1 overflow-hidden">
+          <CompareAnalysis
+            candidates={candidates}
+            hasDest2={!!destination2}
+            selectedCandidateId={selectedCandidateId}
+            onSelectCandidate={(id) => onSelectCandidate(id, 'transit')}
+            onBack={() => setShowAnalysis(false)}
+          />
+        </div>
+      </div>
     )
   }
 
   return (
     <div className="flex flex-col h-full bg-gray-50 border-l border-gray-200">
+      {boardTabs}
       {/* Header */}
       <div className="p-4 bg-white border-b border-gray-200 flex items-start justify-between">
         <div>

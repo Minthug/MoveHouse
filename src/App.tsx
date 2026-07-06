@@ -4,13 +4,48 @@ import ComparePanel from './components/ComparePanel'
 import { useDirections } from './hooks/useDirections'
 import { fetchNearbyPlaces, searchPlacesByKeyword, clearOverpassCache } from './services/places'
 import type { PlaceCategory, NearbyPlace } from './services/places'
-import type { AppMode, CandidateLocation, Destination } from './types'
+import type { AppMode, Board, CandidateLocation, Destination } from './types'
 import { encodeShare, decodeShare } from './lib/share'
 
 const LABELS = ['A', 'B', 'C', 'D', 'E']
 
 function makeId() {
   return Math.random().toString(36).slice(2, 9)
+}
+
+// 초기 보드 목록 구성: 공유 링크 > boards 저장본 > 예전 단일 비교 마이그레이션 > 빈 보드
+function initBoards(): Board[] {
+  const shared = decodeShare()
+  if (shared) {
+    return [{
+      id: makeId(),
+      name: '공유된 비교',
+      destination: { id: makeId(), ...shared.dest },
+      destination2: shared.dest2 ? { id: makeId(), ...shared.dest2 } : null,
+      candidates: shared.cands.map((c) => ({ id: makeId(), ...c, loading: false })),
+    }]
+  }
+  const saved = readLocal<Board[] | null>('commute-boards', null)
+  if (saved && saved.length) {
+    return saved.map((b) => ({
+      ...b,
+      candidates: b.candidates.map((c) => ({ ...c, loading: !c.routes.transit && !c.error })),
+    }))
+  }
+  // 예전 단일 비교 데이터 마이그레이션
+  const oldDest = readLocal<Destination | null>('commute-destination', null)
+  const oldDest2 = readLocal<Destination | null>('commute-destination2', null)
+  const oldCands = readLocal<CandidateLocation[]>('commute-candidates', [])
+  if (oldDest || oldCands.length) {
+    return [{
+      id: makeId(),
+      name: '비교 1',
+      destination: oldDest,
+      destination2: oldDest2,
+      candidates: oldCands.map((c) => ({ ...c, loading: !c.routes.transit && !c.error })),
+    }]
+  }
+  return [{ id: makeId(), name: '비교 1', destination: null, destination2: null, candidates: [] }]
 }
 
 function readLocal<T>(key: string, fallback: T): T {
@@ -27,28 +62,28 @@ function writeLocal(key: string, value: unknown) {
 }
 
 export default function App() {
-  const [destination, setDestination] = useState<Destination | null>(() => {
-    const shared = decodeShare()
-    if (shared) return { id: makeId(), ...shared.dest }
-    return readLocal('commute-destination', null)
+  const [boards, setBoards] = useState<Board[]>(initBoards)
+  const [activeBoardId, setActiveBoardId] = useState<string>(() => {
+    const savedId = readLocal<string | null>('commute-active-board', null)
+    if (savedId && boards.some((b) => b.id === savedId)) return savedId
+    return boards[0]?.id ?? ''
   })
-  const [destination2, setDestination2] = useState<Destination | null>(() => {
-    const shared = decodeShare()
-    if (shared) return shared.dest2 ? { id: makeId(), ...shared.dest2 } : null
-    return readLocal('commute-destination2', null)
-  })
-  const [candidates, setCandidates] = useState<CandidateLocation[]>(() => {
-    const shared = decodeShare()
-    if (shared) {
-      return shared.cands.map((c) => ({
-        id: makeId(), ...c, loading: false,
-      }))
-    }
-    return readLocal<CandidateLocation[]>('commute-candidates', []).map((c) => ({
-      ...c,
-      loading: !c.routes.transit && !c.error,
-    }))
-  })
+  const activeBoard = boards.find((b) => b.id === activeBoardId) ?? boards[0]
+
+  // 활성 보드 필드를 patch (함수형/값 둘 다 지원해 기존 setState 시그니처 유지)
+  function patchActive(patch: Partial<Board> | ((b: Board) => Partial<Board>)) {
+    setBoards((prev) => prev.map((b) => b.id === activeBoard.id ? { ...b, ...(typeof patch === 'function' ? patch(b) : patch) } : b))
+  }
+  type Upd<T> = T | ((prev: T) => T)
+  const applyUpd = <T,>(u: Upd<T>, prev: T): T => (typeof u === 'function' ? (u as (p: T) => T)(prev) : u)
+
+  const destination = activeBoard?.destination ?? null
+  const destination2 = activeBoard?.destination2 ?? null
+  const candidates = activeBoard?.candidates ?? []
+  const setDestination = (v: Upd<Destination | null>) => patchActive((b) => ({ destination: applyUpd(v, b.destination) }))
+  const setDestination2 = (v: Upd<Destination | null>) => patchActive((b) => ({ destination2: applyUpd(v, b.destination2) }))
+  const setCandidates = (v: Upd<CandidateLocation[]>) => patchActive((b) => ({ candidates: applyUpd(v, b.candidates) }))
+
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null)
   const [selectedRouteType, setSelectedRouteType] = useState<'transit' | 'bus'>('transit')
   const [activePlaceCategories, setActivePlaceCategories] = useState<Set<PlaceCategory>>(new Set())
@@ -87,12 +122,12 @@ export default function App() {
     )
   }, [candidateKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // localStorage 동기화
-  useEffect(() => { writeLocal('commute-destination', destination) }, [destination])
-  useEffect(() => { writeLocal('commute-destination2', destination2) }, [destination2])
+  // localStorage 동기화 (보드 전체)
   useEffect(() => {
-    writeLocal('commute-candidates', candidates.map((c) => ({ ...c, loading: false })))
-  }, [candidates])
+    const clean = boards.map((b) => ({ ...b, candidates: b.candidates.map((c) => ({ ...c, loading: false })) }))
+    writeLocal('commute-boards', clean)
+    writeLocal('commute-active-board', activeBoardId)
+  }, [boards, activeBoardId])
 
   // 복원 후 경로 없는 후보지 재조회 + 버스 미조회(undefined) 후보지 백그라운드 업데이트
   useEffect(() => {
@@ -202,6 +237,7 @@ export default function App() {
     (name: string, lat: number, lng: number) => {
       if (!destination) {
         setDestination({ id: makeId(), lat, lng, name, type: 'work' })
+        maybeAutoName(name)
       } else {
         if (destination.name === name) return
         addCandidate(lat, lng, name, destination)
@@ -212,6 +248,7 @@ export default function App() {
 
   function handleDestinationSelect(lat: number, lng: number, address: string) {
     setDestination({ id: makeId(), lat, lng, name: address, type: 'work' })
+    maybeAutoName(address)
   }
 
   function handleCandidateSelect(lat: number, lng: number, address: string) {
@@ -279,14 +316,40 @@ export default function App() {
   }
 
   function handleReset() {
-    setDestination(null)
-    setDestination2(null)
-    setCandidates([])
+    // 활성 보드 내용만 비움 (보드 자체는 유지)
+    patchActive({ destination: null, destination2: null, candidates: [] })
     setSelectedCandidateId(null)
-    localStorage.removeItem('commute-destination')
-    localStorage.removeItem('commute-destination2')
-    localStorage.removeItem('commute-candidates')
     window.history.replaceState(null, '', window.location.pathname)
+  }
+
+  // 보드 이름 자동 생성 (사용자가 이름 안 바꿨을 때만)
+  const isDefaultName = (n: string) => /^비교 \d+$/.test(n) || n === '공유된 비교'
+  function boardNameFromAddress(addr: string): string {
+    return addr.match(/([가-힣]+구)/)?.[1] ?? addr.split(' ')[0] ?? addr
+  }
+  function maybeAutoName(addr: string) {
+    if (activeBoard && isDefaultName(activeBoard.name)) patchActive({ name: boardNameFromAddress(addr) })
+  }
+
+  // 보드 조작
+  function selectBoard(id: string) {
+    setActiveBoardId(id)
+    setSelectedCandidateId(null)
+  }
+  function addBoard() {
+    const nb: Board = { id: makeId(), name: `비교 ${boards.length + 1}`, destination: null, destination2: null, candidates: [] }
+    setBoards((prev) => [...prev, nb])
+    setActiveBoardId(nb.id)
+    setSelectedCandidateId(null)
+  }
+  function renameBoard(id: string, name: string) {
+    setBoards((prev) => prev.map((b) => b.id === id ? { ...b, name: name.trim() || b.name } : b))
+  }
+  function deleteBoard(id: string) {
+    if (boards.length <= 1) return
+    const next = boards.filter((b) => b.id !== id)
+    setBoards(next)
+    if (id === activeBoardId) { setActiveBoardId(next[0].id); setSelectedCandidateId(null) }
   }
 
   function handleShare() {
@@ -315,6 +378,12 @@ export default function App() {
       </div>
       <div className="w-[360px] shrink-0 flex flex-col overflow-hidden">
         <ComparePanel
+          boards={boards.map((b) => ({ id: b.id, name: b.name }))}
+          activeBoardId={activeBoardId}
+          onSelectBoard={selectBoard}
+          onAddBoard={addBoard}
+          onRenameBoard={renameBoard}
+          onDeleteBoard={deleteBoard}
           destination={destination}
           destination2={destination2}
           candidates={candidates}
