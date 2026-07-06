@@ -20,10 +20,14 @@ function initBoards(): Board[] {
   if (shared) {
     return [{
       id: makeId(),
-      name: '공유된 비교',
+      name: shared.name || '공유된 비교',
       destination: { id: makeId(), ...shared.dest },
       destination2: shared.dest2 ? { id: makeId(), ...shared.dest2 } : null,
-      candidates: shared.cands.map((c) => ({ id: makeId(), ...c, loading: false })),
+      // 경로는 공유 링크에 없으므로 열 때 재계산 (loading:true → 복원 effect가 조회)
+      candidates: shared.cands.map((c, i) => ({
+        id: makeId(), lat: c.lat, lng: c.lng, name: c.name, rent: c.rent, memo: c.memo,
+        label: LABELS[i] ?? String(i + 1), routes: {}, loading: true,
+      })),
     }]
   }
   const saved = readLocal<Board[] | null>('commute-boards', null)
@@ -363,7 +367,7 @@ export default function App() {
 
   function handleShare() {
     if (!destination || candidates.length === 0) return
-    const url = encodeShare(destination, candidates, destination2)
+    const url = encodeShare(destination, candidates, destination2, activeBoard?.name)
     navigator.clipboard.writeText(url).then(() => {
       alert('공유 링크가 클립보드에 복사됐어요!')
     }).catch(() => {

@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css');
+.dmap-path { transition: fill .2s ease, stroke .2s ease, opacity .2s ease; cursor: pointer; }
+.dmap-path:hover { opacity: .9; }
+.dmap-static { transition: fill .2s ease; pointer-events:none; }
+.dmap-lbl { position:absolute; transform:translate(-50%,-50%); pointer-events:none; white-space:nowrap; letter-spacing:-.02em; line-height:1; transition:color .2s; }
+.dmap-pin { position:absolute; transform:translate(-50%,-100%); pointer-events:none; display:flex; flex-direction:column; align-items:center; }
+.dmap-pin-badge { width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; color:#fff; font-weight:800; font-size:16px; border:3px solid #fff; box-shadow:0 4px 10px rgba(15,23,42,.28); }
+.dmap-pin-tail { width:0; height:0; border-left:6px solid transparent; border-right:6px solid transparent; margin-top:-2px; }
+.dmap-btn:active { transform:translateY(1px); }
+.dmap-toggle:active { transform:scale(.94); }
+.dmap-back:active { transform:scale(.92); }
+</style>
+</helmet>
+<div style="width:390px;height:780px;display:flex;flex-direction:column;font-family:Pretendard,system-ui,sans-serif;overflow:hidden;background:{{ screenBg }};position:relative">
+
+  <div style="padding:24px 22px 8px;flex:0 0 auto;display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
+    <div style="min-width:0">
+      <div style="font-size:12px;font-weight:600;letter-spacing:.06em;color:{{ subColor }};margin-bottom:6px">지역 선택</div>
+      <div style="display:flex;align-items:center;gap:9px">
+        <button class="dmap-back" onClick="{{ onBack }}" style="display:{{ backDisplay }};align-items:center;justify-content:center;width:30px;height:30px;border-radius:9px;border:none;cursor:pointer;background:{{ chipBg }};color:{{ headColor }};font-size:17px;font-weight:700;transition:transform .12s;flex:0 0 auto">‹</button>
+        <div style="font-size:22px;font-weight:800;color:{{ headColor }};letter-spacing:-.025em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ titleText }}</div>
+      </div>
+    </div>
+    <button class="dmap-toggle" onClick="{{ onToggleDark }}" style="flex:0 0 auto;width:42px;height:42px;border-radius:13px;border:none;cursor:pointer;background:{{ chipBg }};color:{{ headColor }};font-size:18px;display:flex;align-items:center;justify-content:center;transition:transform .12s,background .25s">{{ toggleIcon }}</button>
+  </div>
+
+  <div style="flex:0 0 auto;display:flex;align-items:center;justify-content:center;padding:12px 16px 0;min-height:0">
+    <div style="position:relative;width:100%;max-width:360px;aspect-ratio:1000/800">
+      <svg viewBox="{{ viewBox }}" style="position:absolute;inset:0;width:100%;height:100%;overflow:hidden" preserveAspectRatio="xMidYMid meet">
+        <sc-for list="{{ backdrop }}" as="b" hint-placeholder-count="0">
+          <path class="dmap-static" d="{{ b.d }}" fill="{{ b.fill }}" stroke="{{ b.stroke }}" stroke-width="{{ b.sw }}" stroke-linejoin="round"></path>
+        </sc-for>
+        <sc-for list="{{ shapes }}" as="s" hint-placeholder-count="25">
+          <path class="dmap-path" d="{{ s.d }}" fill="{{ s.fill }}" stroke="{{ s.stroke }}" stroke-width="{{ s.sw }}" stroke-linejoin="round" opacity="{{ s.op }}" onClick="{{ s.onClick }}"></path>
+        </sc-for>
+        <sc-for list="{{ rivers }}" as="r" hint-placeholder-count="0">
+          <path d="{{ r.d }}" fill="none" stroke="{{ riverEdge }}" stroke-width="{{ riverEdgeW }}" stroke-linejoin="round" stroke-linecap="round" opacity="{{ riverOpacity }}" pointer-events="none"></path>
+          <path d="{{ r.d }}" fill="none" stroke="{{ riverColor }}" stroke-width="{{ riverWidth }}" stroke-linejoin="round" stroke-linecap="round" opacity="{{ riverOpacity }}" pointer-events="none"></path>
+        </sc-for>
+        <sc-if value="{{ showGuOutline }}" hint-placeholder-val="{{ false }}">
+          <path class="dmap-static" d="{{ guOutline }}" fill="none" stroke="{{ outlineColor }}" stroke-width="{{ outlineWidth }}" stroke-linejoin="round"></path>
+        </sc-if>
+      </svg>
+      <sc-for list="{{ labels }}" as="l" hint-placeholder-count="25">
+        <div class="dmap-lbl" style="left:{{ l.left }};top:{{ l.top }};color:{{ l.fill }};font-size:{{ l.size }};font-weight:{{ l.weight }}">{{ l.name }}</div>
+      </sc-for>
+      <sc-for list="{{ markers }}" as="m" hint-placeholder-count="0">
+        <div class="dmap-pin" style="left:{{ m.left }};top:{{ m.top }}">
+          <div class="dmap-pin-badge" style="background:{{ m.color }}">{{ m.glyph }}</div>
+          <div class="dmap-pin-tail" style="border-top:9px solid {{ m.color }}"></div>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+
+  <sc-if value="{{ showLegend }}" hint-placeholder-val="{{ true }}">
+    <div style="flex:0 0 auto;display:flex;gap:18px;justify-content:center;padding:10px 20px 4px">
+      <div style="display:flex;align-items:center;gap:7px">
+        <span style="width:13px;height:13px;border-radius:50%;background:{{ candColor }};display:inline-block;box-shadow:0 0 0 2px {{ screenBg }}"></span>
+        <span style="font-size:12.5px;font-weight:600;color:{{ subColor }};white-space:nowrap">후보지 A·B</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:7px">
+        <span style="width:14px;height:14px;border-radius:50%;background:{{ destColor }};display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:9px">★</span>
+        <span style="font-size:12.5px;font-weight:600;color:{{ subColor }};white-space:nowrap">목적지</span>
+      </div>
+    </div>
+  </sc-if>
+
+  <div style="flex:1 1 auto;min-height:8px"></div>
+
+  <div style="flex:0 0 auto;background:{{ sheetBg }};border-top:1px solid {{ sheetBorder }};padding:18px 20px 24px;border-radius:24px 24px 0 0;box-shadow:0 -8px 26px {{ sheetShadow }};transition:background .25s">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+      <div style="min-width:0">
+        <div style="font-size:11.5px;font-weight:600;color:{{ subColor }};margin-bottom:4px">{{ sheetLabel }}</div>
+        <div style="font-size:21px;font-weight:800;color:{{ selectedColor }};letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ selectedName }}</div>
+      </div>
+      <button class="dmap-btn" onClick="{{ onConfirm }}" style="flex:0 0 auto;border:none;border-radius:13px;padding:14px 22px;font-family:Pretendard,sans-serif;font-size:15px;font-weight:700;cursor:pointer;transition:transform .1s,opacity .15s;background:{{ btnBg }};color:{{ btnFg }};opacity:{{ btnOpacity }}">{{ btnLabel }}</button>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:390,&quot;height&quot;:780}}">
+class Component extends DCLogic {
+  state = { gu: null, dong: null, mode: 'gu', selGu: null, selDong: null, viewBox: [0,0,1000,800], dark: false };
+
+  componentDidMount() {
+    try { if (localStorage.getItem('seoulmap-dark') === '1') this.setState({ dark: true }); } catch(e){}
+    Promise.all([import('./seoul-data.js?v=river3'), import('./seoul-dong-data.js')])
+      .then(([a,b]) => this.setState({ gu: a.SEOUL, dong: b.DONG }));
+  }
+  componentWillUnmount(){ cancelAnimationFrame(this._raf); }
+
+  aspectFit(bbox){
+    let [x,y,w,h] = bbox;
+    const px = w*0.16, py = h*0.16;
+    x -= px; y -= py; w += px*2; h += py*2;
+    const A = 1000/800;
+    if (w/h < A){ const nw = h*A; x -= (nw-w)/2; w = nw; }
+    else { const nh = w/A; y -= (nh-h)/2; h = nh; }
+    return [x,y,w,h];
+  }
+  zoomTo(target){
+    cancelAnimationFrame(this._raf);
+    const start = this.state.viewBox.slice();
+    const t0 = performance.now(), dur = 420;
+    const ease = t => t<0.5 ? 4*t*t*t : 1-Math.pow(-2*t+2,3)/2;
+    const step = now => {
+      const p = Math.min(1,(now-t0)/dur), e = ease(p);
+      this.setState({ viewBox: start.map((s,i)=>s+(target[i]-s)*e) });
+      if (p<1) this._raf = requestAnimationFrame(step);
+    };
+    this._raf = requestAnimationFrame(step);
+  }
+  drillTo(g){ this.setState({ mode:'dong', selGu:g, selDong:null }); this.zoomTo(this.aspectFit(g.bbox)); }
+  back(){ this.setState({ mode:'gu', selDong:null }); this.zoomTo([0,0,1000,800]); }
+  toggleDark(){ const d=!this.state.dark; this.setState({dark:d}); try{localStorage.setItem('seoulmap-dark', d?'1':'0');}catch(e){} }
+
+  theme(){
+    return this.state.dark ? {
+      screenBg:'#0e1320', headColor:'#eef2fb', subColor:'#828da4', chipBg:'#1d2638',
+      base:'#232d44', baseStroke:'#0e1320', sw:1.6, dongBase:'#2b3854', dongStroke:'#0e1320',
+      selFill:'#5b8cff', selStroke:'#86a9ff', selLabel:'#0b1020', label:'#9aa6bd',
+      backdropFill:'#19223420', sheetBg:'#161d2e', sheetBorder:'#222c42', sheetShadow:'rgba(0,0,0,.45)',
+      candColor:'#4f86ff', destColor:'#ff5b6e', btnBg:'#5b8cff', btnFg:'#0b1020', outline:'#5b8cff',
+      river:'#3f8aa8', riverEdge:'#2b5f78', riverOp:0.95
+    } : {
+      screenBg:'#f4f6fa', headColor:'#171c26', subColor:'#7b8494', chipBg:'#e9edf4',
+      base:'#e4e9f1', baseStroke:'#ffffff', sw:1.4, dongBase:'#dbe2ee', dongStroke:'#ffffff',
+      selFill:'#4f6ef2', selStroke:'#3a55d9', selLabel:'#ffffff', label:'#5c6573',
+      backdropFill:'#edf0f6', sheetBg:'#ffffff', sheetBorder:'#eceef3', sheetShadow:'rgba(20,28,46,.08)',
+      candColor:'#3b6ef2', destColor:'#ef4444', btnBg:'#4f6ef2', btnFg:'#ffffff', outline:'#4f6ef2',
+      river:'#8ecdd8', riverEdge:'#5aa9b8', riverOp:0.95
+    };
+  }
+
+  renderVals(){
+    const t = this.theme();
+    const { gu, dong, mode, selGu, selDong, viewBox } = this.state;
+    const [vx,vy,vw,vh] = viewBox;
+    const L = x => ((x-vx)/vw*100).toFixed(3)+'%';
+    const T = y => ((y-vy)/vh*100).toFixed(3)+'%';
+
+    let backdrop=[], shapes=[], labels=[], markers=[];
+    const isGu = mode==='gu';
+
+    if (gu && isGu){
+      shapes = gu.districts.map(d => ({
+        d:d.d, fill:t.base, stroke:t.baseStroke, sw:t.sw, op:1,
+        onClick:()=>this.drillTo(d)
+      }));
+      labels = gu.districts.map(d => ({
+        name:d.name, left:L(d.cx), top:T(d.cy), size:'10px', weight:600, fill:t.label
+      }));
+      const at = name => { const d=gu.districts.find(x=>x.name===name); return d?{left:L(d.cx),top:T(d.cy)}:{}; };
+      markers = [
+        {...at('동작구'),color:t.candColor,glyph:'A'},
+        {...at('동대문구'),color:t.candColor,glyph:'B'},
+        {...at('강남구'),color:t.destColor,glyph:'★'}
+      ];
+    } else if (gu && dong && selGu){
+      backdrop = gu.districts.map(d => ({ d:d.d, fill:t.backdropFill, stroke:t.baseStroke, sw:1 }));
+      const list = dong.dong.filter(x => x.gu === selGu.code);
+      shapes = list.map(d => {
+        const sel = d.name===selDong;
+        return { d:d.d, fill:sel?t.selFill:t.dongBase, stroke:sel?t.selStroke:t.dongStroke, sw:sel?1.6:1.1, op:1, onClick:()=>this.setState({selDong:d.name}) };
+      });
+      labels = list.map(d => {
+        const sel = d.name===selDong;
+        return { name:d.name, left:L(d.cx), top:T(d.cy), size:sel?'12.5px':'9.5px', weight:sel?800:600, fill:sel?t.selLabel:t.label };
+      });
+    }
+
+    const guName = selGu ? selGu.name : '';
+    const rivers = (gu && isGu && gu.river) ? gu.river.map(d => ({ d })) : [];
+    return {
+      rivers, riverColor:t.river, riverEdge:t.riverEdge, riverWidth:18, riverEdgeW:25, riverOpacity:t.riverOp,
+      screenBg:t.screenBg, headColor:t.headColor, subColor:t.subColor, chipBg:t.chipBg,
+      sheetBg:t.sheetBg, sheetBorder:t.sheetBorder, sheetShadow:t.sheetShadow,
+      candColor:t.candColor, destColor:t.destColor, btnBg:t.btnBg, btnFg:t.btnFg,
+      viewBox: viewBox.join(' '),
+      backdrop, shapes, labels, markers,
+      showGuOutline: !isGu && !!selGu, guOutline: selGu?selGu.d:'', outlineColor:t.outline, outlineWidth:2.4,
+      showLegend: isGu, backDisplay: isGu?'none':'flex',
+      titleText: isGu ? '서울 자치구' : guName,
+      toggleIcon: this.state.dark ? '☀' : '☾',
+      onToggleDark: ()=>this.toggleDark(),
+      onBack: ()=>this.back(),
+      sheetLabel: isGu ? '구를 탭하면 동이 표시됩니다' : (selDong ? guName+' · 선택한 동' : '동을 선택하세요'),
+      selectedName: isGu ? '구를 선택하세요' : (selDong || guName),
+      selectedColor: (isGu || !selDong) ? t.subColor : t.headColor,
+      btnLabel: '확인',
+      btnOpacity: (!isGu && selDong) ? 1 : 0.4,
+      onConfirm: ()=>{ if(!isGu && selDong) this.setState({}); }
+    };
+  }
+}
+</script>
+</body>
+</html>
