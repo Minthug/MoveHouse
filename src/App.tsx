@@ -72,12 +72,13 @@ export default function App() {
     clearOverpassCache()
   }, [destination?.id])
 
-  // 후보지 변경 시 활성 카테고리 자동 갱신
-  const candidateKey = candidates.map((c) => c.id).join(',')
+  // 후보지/목적지 변경 시 활성 카테고리 자동 갱신
+  const candidateKey = candidates.map((c) => c.id).join(',') + '|' + (destination2?.id ?? '')
   useEffect(() => {
     if (activePlaceCategories.size === 0 || !destination) return
     const locations = [
       { lat: destination.lat, lng: destination.lng, id: destination.id },
+      ...(destination2 ? [{ lat: destination2.lat, lng: destination2.lng, id: destination2.id }] : []),
       ...candidates.map((c) => ({ lat: c.lat, lng: c.lng, id: c.id })),
     ]
     const categories = [...activePlaceCategories]
@@ -232,6 +233,7 @@ export default function App() {
     if (!destination || !keyword.trim()) return
     const locations = [
       { lat: destination.lat, lng: destination.lng, name: destination.name, id: destination.id },
+      ...(destination2 ? [{ lat: destination2.lat, lng: destination2.lng, name: destination2.name, id: destination2.id }] : []),
       ...candidates.map((c) => ({ lat: c.lat, lng: c.lng, name: c.name, id: c.id })),
     ]
     const batches = await Promise.all(
@@ -259,6 +261,7 @@ export default function App() {
       setLoadingCategory(category)
       const locations = [
         { lat: destination.lat, lng: destination.lng, id: destination.id },
+        ...(destination2 ? [{ lat: destination2.lat, lng: destination2.lng, id: destination2.id }] : []),
         ...candidates.map((c) => ({ lat: c.lat, lng: c.lng, id: c.id })),
       ]
       const places = await fetchNearbyPlaces(locations, category)
