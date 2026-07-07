@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react'
+import Linkify from './Linkify'
 import { calcMonthlyFare } from '../services/directions'
 import type { CandidateLocation, RouteResult, RouteStep } from '../types'
 
@@ -171,7 +172,9 @@ export default function LocationCard({ candidate, index, selected, selectedRoute
           {candidate.label}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-gray-800 truncate">{candidate.name}</p>
+          <p className="text-sm font-semibold text-gray-800 line-clamp-2 break-keep leading-snug" title={candidate.name}>
+            {candidate.name}
+          </p>
           {transit && !candidate.loading && !hasDest2 && (
             <div className="mt-0.5 space-y-0.5">
               <p className="text-xs text-gray-500">
@@ -262,7 +265,7 @@ export default function LocationCard({ candidate, index, selected, selectedRoute
         <span className="text-xs text-gray-400">만원</span>
       </div>
 
-      {/* 메모 */}
+      {/* 메모 — 닫힌 상태에선 전체 표시 + URL은 클릭 가능한 링크 */}
       <div className="px-4 pb-3">
         <button
           onClick={() => {
@@ -272,15 +275,20 @@ export default function LocationCard({ candidate, index, selected, selectedRoute
           className="flex items-center gap-1.5 mt-2 text-xs text-gray-400 hover:text-gray-600 transition-colors"
         >
           <span>📝</span>
-          {memoOpen ? '메모 닫기' : (memoValue ? memoValue.slice(0, 20) + (memoValue.length > 20 ? '…' : '') : '메모 추가')}
+          {memoOpen ? '메모 닫기' : (memoValue ? '메모 수정' : '메모 추가')}
         </button>
+        {!memoOpen && memoValue && (
+          <p className="mt-1 text-xs text-gray-500 whitespace-pre-wrap break-keep">
+            <Linkify text={memoValue} />
+          </p>
+        )}
         {memoOpen && (
           <textarea
             ref={textareaRef}
             value={memoValue}
             onChange={(e) => setMemoValue(e.target.value)}
             onBlur={() => onMemoChange(candidate.id, memoValue)}
-            placeholder="이 후보지에 대한 메모를 입력하세요"
+            placeholder="이 후보지에 대한 메모를 입력하세요 (URL은 자동으로 링크가 돼요)"
             rows={3}
             className="mt-2 w-full text-xs border border-gray-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-blue-200 text-gray-700 placeholder-gray-300"
           />

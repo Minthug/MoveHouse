@@ -1,3 +1,4 @@
+import Linkify from './Linkify'
 import { calcMonthlyFare } from '../services/directions'
 import type { CandidateLocation, Destination, RouteResult } from '../types'
 
@@ -96,7 +97,7 @@ export default function SharedView({ boardName, destination, destination2, candi
                   <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0" style={{ background: color }}>
                     {c.label}
                   </div>
-                  <span className="font-bold text-gray-900 flex-1 truncate">{c.name}</span>
+                  <span className="font-bold text-gray-900 flex-1 line-clamp-2 break-keep leading-snug" title={c.name}>{c.name}</span>
                   <div className="flex gap-1 shrink-0">
                     {isFastest && <span className="text-[11px] font-medium text-yellow-700 bg-yellow-50 px-2 py-0.5 rounded-full">{hasDest2 ? '합산 최단' : '최단'}</span>}
                     {isBestReal && <span className="text-[11px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">💵 실질 최저</span>}
@@ -124,7 +125,11 @@ export default function SharedView({ boardName, destination, destination2, candi
                         🏠 실질 월 {fmtFare(rc)} <span className="text-gray-400 font-normal">(월세 {fmtFare(c.rent!)} + 교통 {fmtFare(calcMonthlyFare(fare(c)))})</span>
                       </p>
                     )}
-                    {c.memo && <p className="text-xs text-gray-400 truncate">📝 {c.memo}</p>}
+                    {c.memo && (
+                      <p className="text-xs text-gray-400 whitespace-pre-wrap break-keep">
+                        📝 <Linkify text={c.memo} />
+                      </p>
+                    )}
                   </div>
                 )}
               </div>
