@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
+import { useState, useCallback, useEffect, useMemo } from 'react'
 import SeoulMap from './components/SeoulMap'
 import ComparePanel from './components/ComparePanel'
 import HomeView from './components/HomeView'
@@ -6,7 +6,8 @@ import { useDirections } from './hooks/useDirections'
 import { fetchNearbyPlaces, searchPlacesByKeyword, clearOverpassCache } from './services/places'
 import type { PlaceCategory, NearbyPlace } from './services/places'
 import type { AppMode, Board, CandidateLocation, Destination } from './types'
-import { encodeShare, decodeShare } from './lib/share'
+import { createShareUrl, decodeShare, getShareId, fetchSharedById } from './lib/share'
+import type { ShareData } from './lib/share'
 
 const LABELS = ['A', 'B', 'C', 'D', 'E']
 
@@ -14,22 +15,24 @@ function makeId() {
   return Math.random().toString(36).slice(2, 9)
 }
 
-// 초기 보드 목록 구성: 공유 링크 > boards 저장본 > 예전 단일 비교 마이그레이션 > 빈 보드
+// 공유 payload → 보드 (경로는 열 때 재계산)
+function boardFromShared(shared: ShareData): Board {
+  return {
+    id: makeId(),
+    name: shared.name || '공유된 비교',
+    destination: { id: makeId(), ...shared.dest },
+    destination2: shared.dest2 ? { id: makeId(), ...shared.dest2 } : null,
+    candidates: shared.cands.map((c, i) => ({
+      id: makeId(), lat: c.lat, lng: c.lng, name: c.name, rent: c.rent, memo: c.memo,
+      label: LABELS[i] ?? String(i + 1), routes: {}, loading: true,
+    })),
+  }
+}
+
+// 초기 보드 목록 구성: 인라인 공유 링크 > boards 저장본 > 예전 단일 비교 마이그레이션 > 빈 보드
 function initBoards(): Board[] {
   const shared = decodeShare()
-  if (shared) {
-    return [{
-      id: makeId(),
-      name: shared.name || '공유된 비교',
-      destination: { id: makeId(), ...shared.dest },
-      destination2: shared.dest2 ? { id: makeId(), ...shared.dest2 } : null,
-      // 경로는 공유 링크에 없으므로 열 때 재계산 (loading:true → 복원 effect가 조회)
-      candidates: shared.cands.map((c, i) => ({
-        id: makeId(), lat: c.lat, lng: c.lng, name: c.name, rent: c.rent, memo: c.memo,
-        label: LABELS[i] ?? String(i + 1), routes: {}, loading: true,
-      })),
-    }]
-  }
+  if (shared) return [boardFromShared(shared)]
   const saved = readLocal<Board[] | null>('commute-boards', null)
   if (saved && saved.length) {
     return saved.map((b) => ({
@@ -89,15 +92,14 @@ export default function App() {
   const setDestination2 = (v: Upd<Destination | null>) => patchActive((b) => ({ destination2: applyUpd(v, b.destination2) }))
   const setCandidates = (v: Upd<CandidateLocation[]>) => patchActive((b) => ({ candidates: applyUpd(v, b.candidates) }))
 
-  // 홈(비교 목록) ↔ 보드(지도+패널). 공유 링크로 들어오면 바로 보드.
-  const [view, setView] = useState<'home' | 'board'>(() => (decodeShare() ? 'board' : 'home'))
+  // 홈(비교 목록) ↔ 보드(지도+패널). 공유 링크(인라인 ?s= 또는 단축 ?id=)로 들어오면 바로 보드.
+  const [view, setView] = useState<'home' | 'board'>(() => (decodeShare() || getShareId() ? 'board' : 'home'))
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null)
   const [selectedRouteType, setSelectedRouteType] = useState<'transit' | 'bus'>('transit')
   const [activePlaceCategories, setActivePlaceCategories] = useState<Set<PlaceCategory>>(new Set())
   const [loadingCategory, setLoadingCategory] = useState<PlaceCategory | null>(null)
   const [nearbyPlaces, setNearbyPlaces] = useState<NearbyPlace[]>([])
   const [customPlaces, setCustomPlaces] = useState<NearbyPlace[]>([])
-  const didRestoreRef = useRef(false)
   const mode: AppMode = destination ? 'add-candidate' : 'set-destination'
 
   const allNearbyPlaces = useMemo(
@@ -129,6 +131,21 @@ export default function App() {
     )
   }, [candidateKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // 단축 링크(?id=)로 진입 시 서버에서 payload 받아 보드 구성
+  useEffect(() => {
+    const id = getShareId()
+    if (!id) return
+    fetchSharedById(id).then((shared) => {
+      if (!shared) { setView('home'); return } // 만료/미설정 → 홈
+      const board = boardFromShared(shared)
+      setBoards((prev) => [board, ...prev.filter((b) => b.destination || b.candidates.length)])
+      setActiveBoardId(board.id) // 활성 보드 변경 → 복원 effect가 경로 재계산
+      setView('board')
+    })
+    // URL 정리 (id 제거)
+    window.history.replaceState(null, '', window.location.pathname)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   // localStorage 동기화 (보드 전체)
   useEffect(() => {
     const clean = boards.map((b) => ({ ...b, candidates: b.candidates.map((c) => ({ ...c, loading: false })) }))
@@ -136,10 +153,10 @@ export default function App() {
     writeLocal('commute-active-board', activeBoardId)
   }, [boards, activeBoardId])
 
-  // 복원 후 경로 없는 후보지 재조회 + 버스 미조회(undefined) 후보지 백그라운드 업데이트
+  // 활성 보드 진입 시 경로 없는 후보지 재조회 (보드 전환/공유 링크 로드 시마다).
+  // 이미 경로가 있는 후보지는 건너뛰므로 반복 호출돼도 재조회 안 함.
   useEffect(() => {
-    if (didRestoreRef.current || !destination) return
-    didRestoreRef.current = true
+    if (!destination) return
 
     // transit 없는 후보지: 전체 재조회
     const noTransit = candidates.filter((c) => !c.routes.transit && !c.error)
@@ -176,7 +193,7 @@ export default function App() {
           ))
       }
     }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activeBoardId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function addCandidate(lat: number, lng: number, name: string, dest: Destination) {
     if (candidates.length >= 5) return
@@ -365,9 +382,9 @@ export default function App() {
     if (id === activeBoardId) setActiveBoardId(next[0].id)
   }
 
-  function handleShare() {
+  async function handleShare() {
     if (!destination || candidates.length === 0) return
-    const url = encodeShare(destination, candidates, destination2, activeBoard?.name)
+    const url = await createShareUrl(destination, candidates, destination2, activeBoard?.name)
     navigator.clipboard.writeText(url).then(() => {
       alert('공유 링크가 클립보드에 복사됐어요!')
     }).catch(() => {
