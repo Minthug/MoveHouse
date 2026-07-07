@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useMemo } from 'react'
 import SeoulMap from './components/SeoulMap'
 import ComparePanel from './components/ComparePanel'
 import HomeView from './components/HomeView'
+import SharedView from './components/SharedView'
 import { useDirections } from './hooks/useDirections'
 import { fetchNearbyPlaces, searchPlacesByKeyword, clearOverpassCache } from './services/places'
 import type { PlaceCategory, NearbyPlace } from './services/places'
@@ -92,8 +93,8 @@ export default function App() {
   const setDestination2 = (v: Upd<Destination | null>) => patchActive((b) => ({ destination2: applyUpd(v, b.destination2) }))
   const setCandidates = (v: Upd<CandidateLocation[]>) => patchActive((b) => ({ candidates: applyUpd(v, b.candidates) }))
 
-  // 홈(비교 목록) ↔ 보드(지도+패널). 공유 링크(인라인 ?s= 또는 단축 ?id=)로 들어오면 바로 보드.
-  const [view, setView] = useState<'home' | 'board'>(() => (decodeShare() || getShareId() ? 'board' : 'home'))
+  // 홈(비교 목록) ↔ 보드(편집) ↔ 공유(읽기전용). 공유 링크로 들어오면 읽기전용 결정카드.
+  const [view, setView] = useState<'home' | 'board' | 'shared'>(() => (decodeShare() || getShareId() ? 'shared' : 'home'))
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null)
   const [selectedRouteType, setSelectedRouteType] = useState<'transit' | 'bus'>('transit')
   const [activePlaceCategories, setActivePlaceCategories] = useState<Set<PlaceCategory>>(new Set())
@@ -140,7 +141,7 @@ export default function App() {
       const board = boardFromShared(shared)
       setBoards((prev) => [board, ...prev.filter((b) => b.destination || b.candidates.length)])
       setActiveBoardId(board.id) // 활성 보드 변경 → 복원 effect가 경로 재계산
-      setView('board')
+      setView('shared')
     })
     // URL 정리 (id 제거)
     window.history.replaceState(null, '', window.location.pathname)
@@ -390,6 +391,19 @@ export default function App() {
     }).catch(() => {
       prompt('아래 링크를 복사하세요:', url)
     })
+  }
+
+  if (view === 'shared') {
+    return (
+      <SharedView
+        boardName={activeBoard?.name ?? ''}
+        destination={destination}
+        destination2={destination2}
+        candidates={candidates}
+        onImport={() => setView('board')}
+        onHome={goHome}
+      />
+    )
   }
 
   if (view === 'home') {

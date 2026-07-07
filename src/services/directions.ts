@@ -127,7 +127,30 @@ async function fetchTransitRoute(
   }
 }
 
-export async function getRoutes(
+// (출발지→목적지) 경로 캐시 + 진행중 요청 공유
+// — StrictMode 이중 실행/보드 재진입 시 동일 ODSAY 호출 중복(→429)을 막는다.
+const routeCache = new Map<string, CandidateRoutes>()
+const routeInflight = new Map<string, Promise<CandidateRoutes>>()
+const routeKey = (o: Coordinate, d: Coordinate) =>
+  `${o.lat.toFixed(5)},${o.lng.toFixed(5)}|${d.lat.toFixed(5)},${d.lng.toFixed(5)}`
+
+export function getRoutes(origin: Coordinate, destination: Coordinate): Promise<CandidateRoutes> {
+  const k = routeKey(origin, destination)
+  const cached = routeCache.get(k)
+  if (cached) return Promise.resolve(cached)
+  const pending = routeInflight.get(k)
+  if (pending) return pending
+  const promise = computeRoutes(origin, destination).then((res) => {
+    // transit이 실제로 잡힌 경우만 캐시 (실패는 재시도 가능하게)
+    if (res.transit) routeCache.set(k, res)
+    routeInflight.delete(k)
+    return res
+  }).catch((e) => { routeInflight.delete(k); throw e })
+  routeInflight.set(k, promise)
+  return promise
+}
+
+async function computeRoutes(
   origin: Coordinate,
   destination: Coordinate,
 ): Promise<CandidateRoutes> {
