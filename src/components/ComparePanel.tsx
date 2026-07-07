@@ -61,6 +61,7 @@ function KeywordPlaceSearch({
 interface Props {
   boardName: string
   onBackHome: () => void
+  onRenameBoard: (name: string) => void
   destination: Destination | null
   destination2?: Destination | null
   candidates: CandidateLocation[]
@@ -88,6 +89,7 @@ interface Props {
 export default function ComparePanel({
   boardName,
   onBackHome,
+  onRenameBoard,
   destination,
   destination2,
   candidates,
@@ -139,7 +141,19 @@ export default function ComparePanel({
           >
             <span className="text-sm leading-none">‹</span> 내 비교 목록
           </button>
-          <h1 className="text-base font-bold text-gray-900 truncate">{boardName || '이사 통근 비교'}</h1>
+          <div className="flex items-center gap-1.5 min-w-0">
+            <h1 className="text-base font-bold text-gray-900 truncate">{boardName || '이사 통근 비교'}</h1>
+            <button
+              onClick={() => {
+                const name = window.prompt('비교 이름', boardName)
+                if (name != null && name.trim()) onRenameBoard(name.trim())
+              }}
+              className="shrink-0 text-gray-300 hover:text-gray-600 text-sm leading-none"
+              title="이름 변경"
+            >
+              ✏️
+            </button>
+          </div>
         </div>
         <div className="flex items-center gap-2 mt-0.5 shrink-0">
           {destination && candidates.length > 0 && (

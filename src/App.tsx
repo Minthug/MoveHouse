@@ -422,6 +422,7 @@ export default function App() {
         <ComparePanel
           boardName={activeBoard?.name ?? ''}
           onBackHome={goHome}
+          onRenameBoard={(name) => activeBoard && renameBoard(activeBoard.id, name)}
           destination={destination}
           destination2={destination2}
           candidates={candidates}

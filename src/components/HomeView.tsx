@@ -1,3 +1,4 @@
+import { useState, useRef, useEffect } from 'react'
 import type { Board } from '../types'
 
 interface Props {
@@ -9,6 +10,26 @@ interface Props {
 }
 
 export default function HomeView({ boards, onOpen, onAdd, onRename, onDelete }: Props) {
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [draft, setDraft] = useState('')
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (editingId) inputRef.current?.focus()
+  }, [editingId])
+
+  function startEdit(b: Board, e: React.MouseEvent) {
+    e.stopPropagation()
+    setEditingId(b.id)
+    setDraft(b.name)
+  }
+  function commit() {
+    if (editingId) {
+      onRename(editingId, draft)
+      setEditingId(null)
+    }
+  }
+
   return (
     <div className="w-full h-screen overflow-y-auto bg-[#f4f6fa]" style={{ fontFamily: 'Pretendard, system-ui, sans-serif' }}>
       <div className="max-w-3xl mx-auto px-6 py-10">
@@ -21,30 +42,63 @@ export default function HomeView({ boards, onOpen, onAdd, onRename, onDelete }: 
           {boards.map((b) => {
             const destName = b.destination?.name ?? null
             const count = b.candidates.length
+            const editing = editingId === b.id
             return (
               <div
                 key={b.id}
-                onClick={() => onOpen(b.id)}
-                onDoubleClick={() => {
-                  const name = window.prompt('비교 이름', b.name)
-                  if (name != null) onRename(b.id, name)
-                }}
-                title="더블클릭하면 이름 변경"
+                onClick={() => !editing && onOpen(b.id)}
                 className="group relative bg-white rounded-2xl border border-gray-200 shadow-sm p-4 h-36 flex flex-col cursor-pointer hover:border-blue-300 hover:shadow-md transition-all"
               >
-                {boards.length > 1 && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      if (window.confirm(`'${b.name}' 비교를 삭제할까요?`)) onDelete(b.id)
-                    }}
-                    className="absolute top-2 right-2 text-gray-300 hover:text-red-400 text-lg leading-none opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    ×
-                  </button>
+                {/* 우상단 액션: 이름변경 / 삭제 */}
+                {!editing && (
+                  <div className="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={(e) => startEdit(b, e)}
+                      className="text-gray-300 hover:text-gray-600 text-sm leading-none"
+                      title="이름 변경"
+                    >
+                      ✏️
+                    </button>
+                    {boards.length > 1 && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          if (window.confirm(`'${b.name}' 비교를 삭제할까요?`)) onDelete(b.id)
+                        }}
+                        className="text-gray-300 hover:text-red-400 text-lg leading-none"
+                        title="삭제"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
                 )}
+
                 <div className="text-2xl">🗂️</div>
-                <div className="mt-2 font-bold text-gray-900 truncate">{b.name}</div>
+
+                {editing ? (
+                  <input
+                    ref={inputRef}
+                    value={draft}
+                    onClick={(e) => e.stopPropagation()}
+                    onChange={(e) => setDraft(e.target.value)}
+                    onBlur={commit}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') commit()
+                      if (e.key === 'Escape') setEditingId(null)
+                    }}
+                    className="mt-2 w-full text-sm font-bold border border-blue-300 rounded-lg px-2 py-1 outline-none focus:ring-2 focus:ring-blue-200"
+                  />
+                ) : (
+                  <div
+                    className="mt-2 font-bold text-gray-900 truncate"
+                    onDoubleClick={(e) => startEdit(b, e)}
+                    title="더블클릭 또는 ✏️로 이름 변경"
+                  >
+                    {b.name}
+                  </div>
+                )}
+
                 <div className="mt-auto text-xs text-gray-500 space-y-0.5">
                   <div className="truncate">
                     {destName ? <>📍 {destName}</> : <span className="text-gray-400">목적지 미설정</span>}
