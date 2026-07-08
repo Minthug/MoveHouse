@@ -37,6 +37,15 @@ interface DongSeoulData {
 }
 
 const CANDIDATE_COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ec4899']
+
+// 경로선 외곽 캐싱용 어두운 색 (밝은 지도 위 대비 확보)
+function darken(hex: string, f = 0.55): string {
+  const n = parseInt(hex.slice(1), 16)
+  const r = Math.round(((n >> 16) & 255) * f)
+  const g = Math.round(((n >> 8) & 255) * f)
+  const b = Math.round((n & 255) * f)
+  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`
+}
 const GU_NAMES = [
   '강남구','강동구','강북구','강서구','관악구','광진구','구로구','금천구',
   '노원구','도봉구','동대문구','동작구','마포구','서대문구','서초구','성동구',
@@ -440,17 +449,37 @@ export default function SeoulMap({ mode, destination, destination2, candidates, 
             .map(([lat, lng]) => `${LNG_TO_SVG(lng).toFixed(1)},${LAT_TO_SVG(lat).toFixed(1)}`)
             .join(' L ')
           const isWalk = seg.type === 'walk'
+          const isBus = seg.type === 'bus'
           const dimmed = selectedCandidateId !== null && selectedCandidateId !== seg.candidateId
-          const lineColor = isWalk ? '#9ca3af' : (seg.color ?? seg.candidateColor)
-          const lw = mapScale * (isWalk ? 4 : 7)
-          // 보조 목적지(B) 경로는 점선으로 구분
+          // 노선색(seg.color) 대신 후보지 색으로 통일 — 카드/핀과 매칭되고, 연한 노선색이 배경에 묻히지 않음
+          const lineColor = isWalk ? '#6b7280' : seg.candidateColor
+          const lw = mapScale * (isWalk ? 4.5 : isBus ? 7 : 8)
+          // 이동수단별 선 패턴: 지하철=실선, 버스=점(dot), 도보=짧은 점선. 보조 목적지(B)는 긴 점선(버스면 dot 우선)
           const dash = isWalk
             ? `${8 * mapScale},${7 * mapScale}`
-            : (seg.isDest2 ? `${11 * mapScale},${7 * mapScale}` : undefined)
+            : isBus
+              ? `0.1,${lw * 1.9}`
+              : (seg.isDest2 ? `${11 * mapScale},${7 * mapScale}` : undefined)
+          // 대중교통 구간 중앙에 수단 배지(🚇/🚌) — 짧은 구간은 생략
+          let badge: { x: number; y: number } | null = null
+          if (!isWalk && seg.coords!.length >= 2) {
+            const [aLat, aLng] = seg.coords![0]
+            const [bLat, bLng] = seg.coords![seg.coords!.length - 1]
+            const spanX = LNG_TO_SVG(bLng) - LNG_TO_SVG(aLng)
+            const spanY = LAT_TO_SVG(bLat) - LAT_TO_SVG(aLat)
+            if (Math.hypot(spanX, spanY) > 55 * mapScale) {
+              const [mLat, mLng] = seg.coords![Math.floor(seg.coords!.length / 2)]
+              badge = { x: LNG_TO_SVG(mLng), y: LAT_TO_SVG(mLat) }
+            }
+          }
+          const badgeR = 10 * mapScale
           return (
             <g key={i} style={{ pointerEvents: 'none' }} opacity={dimmed ? 0.25 : 1}>
+              {/* 흰 halo — 지도와 분리 (dash 패턴 동일 적용해 정렬 유지) */}
+              <path d={`M ${pts}`} fill="none" stroke="#fff" strokeWidth={lw * 2} strokeDasharray={dash} strokeLinecap="round" strokeLinejoin="round" opacity={0.9} />
+              {/* 어두운 외곽 캐싱 — 밝은 배경/같은 색 구 위에서도 대비 확보 */}
               {!isWalk && (
-                <path d={`M ${pts}`} fill="none" stroke="#fff" strokeWidth={lw * 1.8} strokeLinecap="round" strokeLinejoin="round" />
+                <path d={`M ${pts}`} fill="none" stroke={darken(seg.candidateColor)} strokeWidth={lw * 1.4} strokeDasharray={dash} strokeLinecap="round" strokeLinejoin="round" />
               )}
               <path
                 d={`M ${pts}`}
@@ -460,8 +489,16 @@ export default function SeoulMap({ mode, destination, destination2, candidates, 
                 strokeDasharray={dash}
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                opacity={isWalk ? 0.65 : 0.9}
+                opacity={isWalk ? 0.9 : 1}
               />
+              {badge && (
+                <g transform={`translate(${badge.x.toFixed(1)},${badge.y.toFixed(1)})`}>
+                  <circle r={badgeR} fill="#fff" stroke={seg.candidateColor} strokeWidth={2 * mapScale} />
+                  <text textAnchor="middle" dominantBaseline="central" fontSize={11 * mapScale}>
+                    {isBus ? '🚌' : '🚇'}
+                  </text>
+                </g>
+              )}
             </g>
           )
         })}
