@@ -26,7 +26,7 @@ export interface RouteResult {
 }
 
 export interface CandidateRoutes {
-  transit?: RouteResult   // 지하철 최적
+  transit?: RouteResult   // 전체 대중교통 최적(버스+지하철 혼합 포함)
   bus?: RouteResult | null // 버스 우선: undefined=미조회, null=조회했지만 지하철과 차이 없음
 }
 

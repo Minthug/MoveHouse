@@ -36,6 +36,16 @@ function formatFare(fare: number): string {
   return fare.toLocaleString('ko-KR') + '원'
 }
 
+function routeMode(route?: RouteResult) {
+  const steps = route?.steps ?? []
+  const hasSubway = steps.some((s) => s.type === 'subway')
+  const hasBus = steps.some((s) => s.type === 'bus')
+  if (hasSubway && hasBus) return { icon: '🚇🚌', label: '최적 경로' }
+  if (hasBus) return { icon: '🚌', label: '버스 경로' }
+  if (hasSubway) return { icon: '🚇', label: '지하철 경로' }
+  return { icon: '🚶', label: '도보 경로' }
+}
+
 function RouteSteps({ steps }: { steps: RouteStep[] }) {
   const significant = steps.filter((s) => s.type !== 'walk' || s.duration >= 5)
 
@@ -149,6 +159,8 @@ export default function LocationCard({ candidate, index, selected, selectedRoute
   const activeRoute = selected ? (selectedRouteType === 'bus' && hasBus ? bus! : transit) : transit
   const monthlyFare = activeRoute?.fare ? calcMonthlyFare(activeRoute.fare) : null
   const combined = transit && transit2 ? transit.duration + transit2.duration : null
+  const transitMode = routeMode(transit)
+  const transit2Mode = routeMode(transit2)
 
   // 실질 월 비용 = 월세 + 월 교통비(두 목적지면 합산)
   const monthlyTransit =
@@ -178,12 +190,12 @@ export default function LocationCard({ candidate, index, selected, selectedRoute
           {transit && !candidate.loading && !hasDest2 && (
             <div className="mt-0.5 space-y-0.5">
               <p className="text-xs text-gray-500">
-                🚇 {formatDuration(transit.duration)} · {formatFare(transit.fare)}
+                {transitMode.icon} {formatDuration(transit.duration)} · {formatFare(transit.fare)}
                 {monthlyFare && transit === activeRoute && <span className="text-gray-400"> · 월 {formatFare(monthlyFare)}</span>}
               </p>
               {hasBus && (
                 <p className="text-xs text-green-600">
-                  🚌 {formatDuration(bus!.duration)} · {formatFare(bus!.fare)}
+                  🚌 버스 우선 {formatDuration(bus!.duration)} · {formatFare(bus!.fare)}
                 </p>
               )}
             </div>
@@ -192,7 +204,7 @@ export default function LocationCard({ candidate, index, selected, selectedRoute
             <div className="mt-1 space-y-0.5">
               <p className="text-xs text-gray-600 flex items-center gap-1">
                 <span style={{ color: '#ef4444' }}>★</span>
-                {formatDuration(transit.duration)} · {formatFare(transit.fare)}
+                {transitMode.icon} {formatDuration(transit.duration)} · {formatFare(transit.fare)}
               </p>
               {candidate.loading2 ? (
                 <p className="text-xs text-gray-400 flex items-center gap-1">
@@ -305,8 +317,8 @@ export default function LocationCard({ candidate, index, selected, selectedRoute
           )}
           <p className="text-xs text-gray-400 mb-1">경로 선택 (클릭하면 지도에 표시)</p>
           <RouteDetailCard
-            icon="🚇"
-            label="지하철 최적"
+            icon={transitMode.icon}
+            label={transitMode.label}
             route={transit!}
             active={selectedRouteType === 'transit'}
             onClick={() => onSelect(candidate.id, 'transit')}
@@ -332,7 +344,7 @@ export default function LocationCard({ candidate, index, selected, selectedRoute
                 <span className="text-gray-300 font-normal">· 지도에선 점선</span>
               </p>
               <p className="text-xs text-gray-500">
-                🚇 {formatDuration(transit2.duration)} · {formatFare(transit2.fare)}
+                {transit2Mode.icon} {formatDuration(transit2.duration)} · {formatFare(transit2.fare)}
               </p>
               {transit2.steps && <RouteSteps steps={transit2.steps} />}
             </div>

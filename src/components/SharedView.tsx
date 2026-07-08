@@ -19,6 +19,16 @@ function legStats(r?: RouteResult) {
   return { transfers: Math.max(0, legs - 1), walk }
 }
 
+function routeIcon(r?: RouteResult) {
+  const steps = r?.steps ?? []
+  const hasSubway = steps.some((s) => s.type === 'subway')
+  const hasBus = steps.some((s) => s.type === 'bus')
+  if (hasSubway && hasBus) return '🚇🚌'
+  if (hasBus) return '🚌'
+  if (hasSubway) return '🚇'
+  return '🚶'
+}
+
 interface Props {
   boardName: string
   destination: Destination | null
@@ -110,7 +120,7 @@ export default function SharedView({ boardName, destination, destination2, candi
                 ) : (
                   <div className="mt-2 pl-10 space-y-1">
                     {!hasDest2 ? (
-                      <p className="text-sm text-gray-700">🚇 {fmtDur(t.duration)} · {fmtFare(t.fare)}</p>
+                      <p className="text-sm text-gray-700">{routeIcon(t)} {fmtDur(t.duration)} · {fmtFare(t.fare)}</p>
                     ) : (
                       <div className="text-sm text-gray-700">
                         <span className="mr-3"><span style={{ color: '#ef4444' }}>★</span> {fmtDur(t.duration)}</span>

@@ -1,4 +1,4 @@
-import type { Coordinate, RouteResult, RouteStep, CandidateRoutes } from '../types'
+import type { Coordinate, RouteStep, CandidateRoutes } from '../types'
 import { apiUrl } from '../lib/api'
 
 function haversineDistance(a: Coordinate, b: Coordinate): number {
@@ -160,7 +160,9 @@ async function computeRoutes(
     fetchTransitRoute(origin, destination, '2'),
   ])
 
-  // null = 조회했지만 지하철과 의미있는 차이 없음 / undefined = 미조회
+  // SearchPathType=0은 전체 대중교통 최적(버스+지하철 혼합 포함),
+  // SearchPathType=2는 버스 우선 대체안이다.
+  // null = 조회했지만 최적 경로와 의미있는 차이 없음 / undefined = 미조회
   const isBusMeaningful =
     busResult &&
     (transit

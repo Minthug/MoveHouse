@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import type { AppMode, CandidateLocation, Destination } from '../types'
+import type { AppMode, CandidateLocation, Destination, RouteResult } from '../types'
 import { PLACE_CATEGORIES } from '../services/places'
 import type { NearbyPlace } from '../services/places'
 import { SUBWAY_LINES } from '../data/subway-lines'
@@ -246,6 +246,40 @@ export default function SeoulMap({ mode, destination, destination2, candidates, 
       segs.push(...steps2.map((s) => ({ ...s, candidateId: c.id, candidateColor: color, isDest2: true })))
     }
     return segs
+  })
+
+  // 경로 오버레이: 승차·환승·하차역 마커 + 총 소요시간 칩 (경로당 1개)
+  type RouteOverlay = {
+    candidateId: string
+    color: string
+    duration: number
+    mid: [number, number]
+    stops: { x: number; y: number; name?: string }[]
+  }
+  const routeOverlays: RouteOverlay[] = candidates.flatMap((c, i) => {
+    if (!routeVisible.has(c.id)) return []
+    const color = CANDIDATE_COLORS[i % CANDIDATE_COLORS.length]
+    const make = (route: RouteResult | null | undefined): RouteOverlay[] => {
+      const steps = route?.steps?.filter((s) => s.coords && s.coords.length >= 2) ?? []
+      if (!steps.length) return []
+      // 승차/환승 지점 = 각 대중교통 구간의 시작점, 하차 지점 = 마지막 대중교통 구간의 끝점
+      const transit = steps.filter((s) => s.type !== 'walk')
+      const stops = transit.map((s) => {
+        const [lat, lng] = s.coords![0]
+        return { x: LNG_TO_SVG(lng), y: LAT_TO_SVG(lat), name: s.from }
+      })
+      if (transit.length) {
+        const last = transit[transit.length - 1]
+        const [lat, lng] = last.coords![last.coords!.length - 1]
+        stops.push({ x: LNG_TO_SVG(lng), y: LAT_TO_SVG(lat), name: last.to })
+      }
+      const all = steps.flatMap((s) => s.coords!)
+      const [mLat, mLng] = all[Math.floor(all.length / 2)]
+      return [{ candidateId: c.id, color, duration: route!.duration, mid: [LNG_TO_SVG(mLng), LAT_TO_SVG(mLat)], stops }]
+    }
+    const out = make((selectedRouteType === 'bus' ? c.routes.bus : null) ?? c.routes.transit)
+    if (destination2) out.push(...make((selectedRouteType === 'bus' ? c.routes2?.bus : null) ?? c.routes2?.transit))
+    return out
   })
 
   // Destination district info
@@ -527,6 +561,46 @@ export default function SeoulMap({ mode, destination, destination2, candidates, 
                   </text>
                 </g>
               )}
+            </g>
+          )
+        })}
+
+        {/* 경로 오버레이 — 승차·환승·하차역 마커 + 소요시간 칩 */}
+        {routeOverlays.map((o, i) => {
+          const dimmed = selectedCandidateId !== null && selectedCandidateId !== o.candidateId
+          const label = `${o.duration}분`
+          const chipH = 16 * mapScale
+          const chipW = label.length * 6.5 * mapScale + 12 * mapScale
+          return (
+            <g key={`route-overlay-${i}`} style={{ pointerEvents: 'none' }} opacity={dimmed ? 0.25 : 1}>
+              {o.stops.map((st, k) => (
+                <g key={k}>
+                  <circle cx={st.x} cy={st.y} r={4.5 * mapScale} fill="#fff" stroke={darken(o.color)} strokeWidth={2.2 * mapScale} />
+                  {st.name && (
+                    <text
+                      x={st.x}
+                      y={st.y - 8 * mapScale}
+                      textAnchor="middle"
+                      fontSize={7.5 * mapScale}
+                      fontWeight={700}
+                      fill="#1f2937"
+                      stroke="#fff"
+                      strokeWidth={2.5 * mapScale}
+                      paintOrder="stroke"
+                      letterSpacing="-0.2"
+                    >
+                      {st.name}
+                    </text>
+                  )}
+                </g>
+              ))}
+              {/* 소요시간 칩 — 경로선 위쪽에 띄워 배지와 겹침 방지 */}
+              <g transform={`translate(${o.mid[0].toFixed(1)},${(o.mid[1] - 18 * mapScale).toFixed(1)})`}>
+                <rect x={-chipW / 2} y={-chipH / 2} width={chipW} height={chipH} rx={chipH / 2} fill={o.color} stroke="#fff" strokeWidth={1.8 * mapScale} />
+                <text textAnchor="middle" dominantBaseline="central" fontSize={9.5 * mapScale} fontWeight={800} fill="#fff">
+                  {label}
+                </text>
+              </g>
             </g>
           )
         })}
