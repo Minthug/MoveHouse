@@ -33,7 +33,7 @@ export default function HomeView({ boards, onOpen, onAdd, onRename, onDelete }: 
   return (
     <div className="w-full h-screen overflow-y-auto bg-[#f4f6fa]" style={{ fontFamily: 'Pretendard, system-ui, sans-serif' }}>
       <div className="max-w-3xl mx-auto px-6 py-10">
-        <h1 className="text-2xl font-extrabold text-gray-900">이사 통근 비교</h1>
+        <h1 className="text-2xl font-extrabold text-gray-900">이사가자</h1>
         <p className="text-sm text-gray-500 mt-1">
           비교할 상황을 페이지로 만들어 두고 골라 보세요. 각 비교는 목적지와 후보지 최대 5곳을 담아요.
         </p>

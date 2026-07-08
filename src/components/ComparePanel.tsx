@@ -142,7 +142,7 @@ export default function ComparePanel({
             <span className="text-sm leading-none">‹</span> 내 비교 목록
           </button>
           <div className="flex items-center gap-1.5 min-w-0">
-            <h1 className="text-base font-bold text-gray-900 truncate">{boardName || '이사 통근 비교'}</h1>
+            <h1 className="text-base font-bold text-gray-900 truncate">{boardName || '이사가자'}</h1>
             <button
               onClick={() => {
                 const name = window.prompt('비교 이름', boardName)
