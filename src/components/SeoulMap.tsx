@@ -37,6 +37,8 @@ interface DongSeoulData {
 }
 
 const CANDIDATE_COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ec4899']
+const FULL_VIEWBOX: [number, number, number, number] = [-468, -323, 1999, 1599]
+const MAP_ASPECT = 1000 / 800
 
 // 경로선 외곽 캐싱용 어두운 색 (밝은 지도 위 대비 확보)
 function darken(hex: string, f = 0.55): string {
@@ -63,15 +65,32 @@ function extractDongName(address: string): string | null {
 
 function aspectFit(bbox: [number, number, number, number]): [number, number, number, number] {
   let [x, y, w, h] = bbox
-  const px = w * 0.18, py = h * 0.18
+  const px = w * 0.28, py = h * 0.28
   x -= px; y -= py; w += px * 2; h += py * 2
-  const A = 1000 / 800
-  if (w / h < A) { const nw = h * A; x -= (nw - w) / 2; w = nw }
-  else { const nh = w / A; y -= (nh - h) / 2; h = nh }
+  if (w / h < MAP_ASPECT) { const nw = h * MAP_ASPECT; x -= (nw - w) / 2; w = nw }
+  else { const nh = w / MAP_ASPECT; y -= (nh - h) / 2; h = nh }
   return [x, y, w, h]
 }
 
-const EASE = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2)
+function fitPoints(points: Array<[number, number]>, minWidth = 620): [number, number, number, number] {
+  if (points.length === 0) return FULL_VIEWBOX
+  const xs = points.map(([x]) => x)
+  const ys = points.map(([, y]) => y)
+  let x = Math.min(...xs)
+  let y = Math.min(...ys)
+  let w = Math.max(...xs) - x
+  let h = Math.max(...ys) - y
+  const pad = Math.max(120, Math.max(w, h) * 0.24)
+  x -= pad; y -= pad; w += pad * 2; h += pad * 2
+  if (w < minWidth) { x -= (minWidth - w) / 2; w = minWidth }
+  const minHeight = minWidth / MAP_ASPECT
+  if (h < minHeight) { y -= (minHeight - h) / 2; h = minHeight }
+  if (w / h < MAP_ASPECT) { const nw = h * MAP_ASPECT; x -= (nw - w) / 2; w = nw }
+  else { const nh = w / MAP_ASPECT; y -= (nh - h) / 2; h = nh }
+  return [x, y, w, h]
+}
+
+const EASE = (t: number) => 1 - Math.pow(1 - t, 3)
 
 interface Props {
   mode: AppMode
@@ -91,8 +110,8 @@ export default function SeoulMap({ mode, destination, destination2, candidates, 
   const [selGu, setSelGu] = useState<GuData | null>(null)
   const [selDong, setSelDong] = useState<DongData | null>(null)
   const [hoveredGu, setHoveredGu] = useState<string | null>(null)
-  const [viewBox, setViewBox] = useState<[number, number, number, number]>([-468, -323, 1999, 1599])
-  const vbRef = useRef<[number, number, number, number]>([-468, -323, 1999, 1599])
+  const [viewBox, setViewBox] = useState<[number, number, number, number]>(FULL_VIEWBOX)
+  const vbRef = useRef<[number, number, number, number]>(FULL_VIEWBOX)
   const rafRef = useRef(0)
 
   useEffect(() => {
@@ -108,12 +127,12 @@ export default function SeoulMap({ mode, destination, destination2, candidates, 
     return () => cancelAnimationFrame(rafRef.current)
   }, [])
 
-  function zoomTo(target: [number, number, number, number]) {
+  function zoomTo(target: [number, number, number, number], duration = 560) {
     cancelAnimationFrame(rafRef.current)
     const start = vbRef.current.slice() as [number, number, number, number]
     const t0 = performance.now()
     const step = (now: number) => {
-      const p = Math.min(1, (now - t0) / 420)
+      const p = Math.min(1, (now - t0) / duration)
       const e = EASE(p)
       const cur = start.map((s, i) => s + (target[i] - s) * e) as [number, number, number, number]
       vbRef.current = cur
@@ -161,26 +180,37 @@ export default function SeoulMap({ mode, destination, destination2, candidates, 
   // 경로 선택 시 전체 뷰로 줌아웃해서 경로가 보이도록
   useEffect(() => {
     if (selectedCandidateId) {
+      const selected = candidates.find((c) => c.id === selectedCandidateId)
+      const points: Array<[number, number]> = []
+      if (destination) points.push([LNG_TO_SVG(destination.lng), LAT_TO_SVG(destination.lat)])
+      if (destination2) points.push([LNG_TO_SVG(destination2.lng), LAT_TO_SVG(destination2.lat)])
+      if (selected) {
+        points.push([LNG_TO_SVG(selected.lng), LAT_TO_SVG(selected.lat)])
+        const route = (selectedRouteType === 'bus' ? selected.routes.bus : null) ?? selected.routes.transit
+        route?.steps?.forEach((step) => step.coords?.forEach(([lat, lng]) => points.push([LNG_TO_SVG(lng), LAT_TO_SVG(lat)])))
+        const route2 = (selectedRouteType === 'bus' ? selected.routes2?.bus : null) ?? selected.routes2?.transit
+        route2?.steps?.forEach((step) => step.coords?.forEach(([lat, lng]) => points.push([LNG_TO_SVG(lng), LAT_TO_SVG(lat)])))
+      }
       setViewMode('gu')
       setSelGu(null)
       setSelDong(null)
-      zoomTo([-468, -323, 1999, 1599])
+      zoomTo(points.length >= 2 ? fitPoints(points) : FULL_VIEWBOX)
     }
-  }, [selectedCandidateId]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selectedCandidateId, selectedRouteType]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function drillTo(g: GuData) {
     setViewMode('dong')
     setSelGu(g)
     setSelDong(null)
     setHoveredGu(null)
-    zoomTo(aspectFit(g.bbox))
+    zoomTo(aspectFit(g.bbox), 620)
   }
 
   function goBack() {
     setViewMode('gu')
     setSelGu(null)
     setSelDong(null)
-    zoomTo([-468, -323, 1999, 1599])
+    zoomTo(FULL_VIEWBOX, 560)
   }
 
   function confirmSelection() {
@@ -220,12 +250,10 @@ export default function SeoulMap({ mode, destination, destination2, candidates, 
 
   // Destination district info
   const destGu = destination ? extractGuName(destination.name) ?? destination.name : null
-  const destDong = destination ? extractDongName(destination.name) : null
   const dest2Gu = destination2 ? extractGuName(destination2.name) ?? destination2.name : null
 
   // Candidate district info
   const candGus = candidates.map((c) => extractGuName(c.name) ?? c.name)
-  const candDongs = candidates.map((c) => extractDongName(c.name))
 
   // Build pins for current view
   type Pin = { cx: number; cy: number; color: string; glyph: string; dimmed: boolean }

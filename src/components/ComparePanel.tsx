@@ -2,7 +2,7 @@ import { useState, useRef } from 'react'
 import LocationCard from './LocationCard'
 import SearchBar from './SearchBar'
 import CompareAnalysis from './CompareAnalysis'
-import type { AppMode, CandidateLocation, Destination } from '../types'
+import type { CandidateLocation, Destination } from '../types'
 import { PLACE_CATEGORIES } from '../services/places'
 import type { PlaceCategory, NearbyPlace } from '../services/places'
 
@@ -64,6 +64,7 @@ interface Props {
   onRenameBoard: (name: string) => void
   destination: Destination | null
   destination2?: Destination | null
+  compareInvite?: boolean
   candidates: CandidateLocation[]
   selectedCandidateId: string | null
   selectedRouteType: 'transit' | 'bus'
@@ -92,6 +93,7 @@ export default function ComparePanel({
   onRenameBoard,
   destination,
   destination2,
+  compareInvite = false,
   candidates,
   selectedCandidateId,
   onSelectCandidate,
@@ -132,15 +134,40 @@ export default function ComparePanel({
   return (
     <div className="flex flex-col h-full bg-gray-50 border-l border-gray-200">
       {/* Header */}
-      <div className="p-4 bg-white border-b border-gray-200 flex items-start justify-between">
-        <div className="min-w-0">
+      <div className="p-4 bg-white border-b border-gray-200">
+        <div className="flex items-center justify-between gap-2 mb-3">
           <button
             onClick={onBackHome}
-            className="inline-flex items-center gap-1 text-xs font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 px-2.5 py-1 rounded-full transition-colors mb-2"
+            className="inline-flex items-center gap-1 text-xs font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 px-2.5 py-1.5 rounded-full transition-colors"
             title="비교 목록으로"
           >
             <span className="text-sm leading-none">‹</span> 내 비교 목록
           </button>
+          <div className="flex items-center gap-2 shrink-0">
+            {destination && candidates.length > 0 && (
+              <button
+                onClick={onShare}
+                className="text-xs font-semibold text-blue-500 bg-blue-50 hover:bg-blue-100 px-2.5 py-1.5 rounded-full transition-colors"
+                title="비교 결과 공유"
+              >
+                링크 공유
+              </button>
+            )}
+            {(destination || candidates.length > 0) && (
+              <button
+                onClick={() => {
+                  if (window.confirm('목적지와 후보지를 모두 초기화할까요?')) onReset()
+                }}
+                className="text-xs font-semibold text-gray-400 hover:text-red-500 bg-gray-50 hover:bg-red-50 px-2.5 py-1.5 rounded-full transition-colors"
+                title="전체 초기화"
+              >
+                초기화
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="min-w-0">
           <div className="flex items-center gap-1.5 min-w-0">
             <h1 className="text-base font-bold text-gray-900 truncate">{boardName || '이사가자'}</h1>
             <button
@@ -154,28 +181,6 @@ export default function ComparePanel({
               ✏️
             </button>
           </div>
-        </div>
-        <div className="flex items-center gap-2 mt-0.5 shrink-0">
-          {destination && candidates.length > 0 && (
-            <button
-              onClick={onShare}
-              className="text-xs text-blue-400 hover:text-blue-600 transition-colors font-medium"
-              title="비교 결과 공유"
-            >
-              링크 공유
-            </button>
-          )}
-          {(destination || candidates.length > 0) && (
-            <button
-              onClick={() => {
-                if (window.confirm('목적지와 후보지를 모두 초기화할까요?')) onReset()
-              }}
-              className="text-xs text-gray-300 hover:text-red-400 transition-colors"
-              title="전체 초기화"
-            >
-              초기화
-            </button>
-          )}
         </div>
       </div>
 
@@ -214,12 +219,22 @@ export default function ComparePanel({
             </div>
           ) : (
             <div className="pt-0.5">
+              {compareInvite && candidates.length > 0 && (
+                <div className="mb-2 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2">
+                  <p className="text-xs font-semibold text-blue-700">상대가 고른 후보지를 내 기준으로도 보기</p>
+                  <p className="text-[11px] text-blue-500 mt-0.5 leading-relaxed">
+                    내 회사/학교를 추가하면 같은 후보지들의 두 번째 통근 시간이 계산돼요.
+                  </p>
+                </div>
+              )}
               <div className="flex items-center gap-2 mb-1.5">
                 <span className="w-4 h-4 rounded-full flex items-center justify-center text-white text-[10px] shrink-0" style={{ background: '#0d9488' }}>★</span>
-                <span className="text-xs font-medium text-gray-500">두 번째 목적지 (예: 배우자 회사)</span>
+                <span className="text-xs font-medium text-gray-500">
+                  {compareInvite ? '내 목적지 추가' : '두 번째 목적지 (예: 배우자 회사)'}
+                </span>
               </div>
               <SearchBar
-                placeholder="두 번째 목적지 주소 (선택)"
+                placeholder={compareInvite ? '내 회사/학교 주소 검색' : '두 번째 목적지 주소 (선택)'}
                 onSelect={onDestination2Select}
               />
             </div>

@@ -3,6 +3,7 @@ import SeoulMap from './components/SeoulMap'
 import ComparePanel from './components/ComparePanel'
 import HomeView from './components/HomeView'
 import SharedView from './components/SharedView'
+import BoardCompareView from './components/BoardCompareView'
 import { useDirections } from './hooks/useDirections'
 import { fetchNearbyPlaces, searchPlacesByKeyword, clearOverpassCache } from './services/places'
 import type { PlaceCategory, NearbyPlace } from './services/places'
@@ -32,29 +33,33 @@ function boardFromShared(shared: ShareData): Board {
 
 // 초기 보드 목록 구성: 인라인 공유 링크 > boards 저장본 > 예전 단일 비교 마이그레이션 > 빈 보드
 function initBoards(): Board[] {
-  const shared = decodeShare()
-  if (shared) return [boardFromShared(shared)]
   const saved = readLocal<Board[] | null>('commute-boards', null)
   if (saved && saved.length) {
-    return saved.map((b) => ({
+    const boards = saved.map((b) => ({
       ...b,
       candidates: b.candidates.map((c) => ({ ...c, loading: !c.routes.transit && !c.error })),
     }))
+    const shared = decodeShare()
+    return shared ? [boardFromShared(shared), ...boards.filter((b) => b.destination || b.candidates.length)] : boards
   }
   // 예전 단일 비교 데이터 마이그레이션
   const oldDest = readLocal<Destination | null>('commute-destination', null)
   const oldDest2 = readLocal<Destination | null>('commute-destination2', null)
   const oldCands = readLocal<CandidateLocation[]>('commute-candidates', [])
+  const shared = decodeShare()
   if (oldDest || oldCands.length) {
-    return [{
+    const boards = [{
       id: makeId(),
       name: '비교 1',
       destination: oldDest,
       destination2: oldDest2,
       candidates: oldCands.map((c) => ({ ...c, loading: !c.routes.transit && !c.error })),
     }]
+    return shared ? [boardFromShared(shared), ...boards] : boards
   }
-  return [{ id: makeId(), name: '비교 1', destination: null, destination2: null, candidates: [] }]
+  return shared
+    ? [boardFromShared(shared)]
+    : [{ id: makeId(), name: '비교 1', destination: null, destination2: null, candidates: [] }]
 }
 
 function readLocal<T>(key: string, fallback: T): T {
@@ -73,6 +78,7 @@ function writeLocal(key: string, value: unknown) {
 export default function App() {
   const [boards, setBoards] = useState<Board[]>(initBoards)
   const [activeBoardId, setActiveBoardId] = useState<string>(() => {
+    if (decodeShare()) return boards[0]?.id ?? ''
     const savedId = readLocal<string | null>('commute-active-board', null)
     if (savedId && boards.some((b) => b.id === savedId)) return savedId
     return boards[0]?.id ?? ''
@@ -94,9 +100,11 @@ export default function App() {
   const setCandidates = (v: Upd<CandidateLocation[]>) => patchActive((b) => ({ candidates: applyUpd(v, b.candidates) }))
 
   // 홈(비교 목록) ↔ 보드(편집) ↔ 공유(읽기전용). 공유 링크로 들어오면 읽기전용 결정카드.
-  const [view, setView] = useState<'home' | 'board' | 'shared'>(() => (decodeShare() || getShareId() ? 'shared' : 'home'))
+  const [view, setView] = useState<'home' | 'board' | 'shared' | 'board-compare'>(() => (decodeShare() || getShareId() ? 'shared' : 'home'))
+  const [compareBoardIds, setCompareBoardIds] = useState<[string, string] | null>(null)
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null)
   const [selectedRouteType, setSelectedRouteType] = useState<'transit' | 'bus'>('transit')
+  const [compareInvite, setCompareInvite] = useState(false)
   const [activePlaceCategories, setActivePlaceCategories] = useState<Set<PlaceCategory>>(new Set())
   const [loadingCategory, setLoadingCategory] = useState<PlaceCategory | null>(null)
   const [nearbyPlaces, setNearbyPlaces] = useState<NearbyPlace[]>([])
@@ -281,6 +289,7 @@ export default function App() {
   }
 
   function handleDestination2Select(lat: number, lng: number, address: string) {
+    setCompareInvite(false)
     setDestination2AndFetch({ id: makeId(), lat, lng, name: address, type: 'work' })
   }
 
@@ -360,10 +369,13 @@ export default function App() {
   function openBoard(id: string) {
     setActiveBoardId(id)
     setSelectedCandidateId(null)
+    setCompareInvite(false)
     setView('board')
   }
   function goHome() {
     setSelectedCandidateId(null)
+    setCompareInvite(false)
+    setCompareBoardIds(null)
     setView('home')
   }
   function addBoard() {
@@ -371,6 +383,7 @@ export default function App() {
     setBoards((prev) => [...prev, nb])
     setActiveBoardId(nb.id)
     setSelectedCandidateId(null)
+    setCompareInvite(false)
     setView('board')
   }
   function renameBoard(id: string, name: string) {
@@ -381,6 +394,12 @@ export default function App() {
     const next = boards.filter((b) => b.id !== id)
     setBoards(next)
     if (id === activeBoardId) setActiveBoardId(next[0].id)
+  }
+  function compareBoards(ids: [string, string]) {
+    setCompareBoardIds(ids)
+    setSelectedCandidateId(null)
+    setCompareInvite(false)
+    setView('board-compare')
   }
 
   async function handleShare() {
@@ -393,6 +412,12 @@ export default function App() {
     })
   }
 
+  function handleImportShared() {
+    setSelectedCandidateId(null)
+    setCompareInvite(!destination2)
+    setView('board')
+  }
+
   if (view === 'shared') {
     return (
       <SharedView
@@ -400,7 +425,7 @@ export default function App() {
         destination={destination}
         destination2={destination2}
         candidates={candidates}
-        onImport={() => setView('board')}
+        onImport={handleImportShared}
         onHome={goHome}
       />
     )
@@ -412,10 +437,26 @@ export default function App() {
         boards={boards}
         onOpen={openBoard}
         onAdd={addBoard}
+        onCompare={compareBoards}
         onRename={renameBoard}
         onDelete={deleteBoard}
       />
     )
+  }
+
+  if (view === 'board-compare' && compareBoardIds) {
+    const selectedBoards = compareBoardIds
+      .map((id) => boards.find((b) => b.id === id))
+      .filter((b): b is Board => !!b)
+    if (selectedBoards.length === 2) {
+      return (
+        <BoardCompareView
+          boards={[selectedBoards[0], selectedBoards[1]]}
+          onBack={goHome}
+          onOpen={openBoard}
+        />
+      )
+    }
   }
 
   return (
@@ -439,6 +480,7 @@ export default function App() {
           onRenameBoard={(name) => activeBoard && renameBoard(activeBoard.id, name)}
           destination={destination}
           destination2={destination2}
+          compareInvite={compareInvite}
           candidates={candidates}
           selectedCandidateId={selectedCandidateId}
           selectedRouteType={selectedRouteType}

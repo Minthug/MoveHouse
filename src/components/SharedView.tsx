@@ -54,12 +54,13 @@ export default function SharedView({ boardName, destination, destination2, candi
           <div className="min-w-0">
             <p className="text-xs text-gray-400 font-medium">공유된 이사 후보 비교</p>
             <h1 className="text-2xl font-extrabold text-gray-900 truncate">{boardName || '이사 후보 비교'}</h1>
+            <p className="text-xs text-gray-500 mt-1">상대가 고른 후보지들을 내 목적지 기준으로도 다시 볼 수 있어요.</p>
           </div>
           <button
             onClick={onImport}
             className="shrink-0 text-sm font-semibold text-white bg-blue-500 hover:bg-blue-600 px-4 py-2 rounded-xl transition-colors"
           >
-            ✏️ 내 비교로 편집
+            내 기준으로 같이 비교하기
           </button>
         </div>
 
