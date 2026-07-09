@@ -4,6 +4,8 @@ import ComparePanel from './components/ComparePanel'
 import HomeView from './components/HomeView'
 import SharedView from './components/SharedView'
 import BoardCompareView from './components/BoardCompareView'
+import ThemeToggle from './components/ThemeToggle'
+import type { ThemeMode } from './components/ThemeToggle'
 import { useDirections } from './hooks/useDirections'
 import { fetchNearbyPlaces, searchPlacesByKeyword, clearOverpassCache } from './services/places'
 import type { PlaceCategory, NearbyPlace } from './services/places'
@@ -12,6 +14,7 @@ import { createShareUrl, decodeShare, getShareId, fetchSharedById } from './lib/
 import type { ShareData } from './lib/share'
 
 const LABELS = ['A', 'B', 'C', 'D', 'E']
+const THEME_KEY = 'commute-theme-mode'
 
 function makeId() {
   return Math.random().toString(36).slice(2, 9)
@@ -75,7 +78,13 @@ function writeLocal(key: string, value: unknown) {
   try { localStorage.setItem(key, JSON.stringify(value)) } catch {}
 }
 
+function initThemeMode(): ThemeMode {
+  const saved = readLocal<string | null>(THEME_KEY, null)
+  return saved === 'dark' ? 'dark' : 'light'
+}
+
 export default function App() {
+  const [themeMode, setThemeMode] = useState<ThemeMode>(initThemeMode)
   const [boards, setBoards] = useState<Board[]>(initBoards)
   const [activeBoardId, setActiveBoardId] = useState<string>(() => {
     if (decodeShare()) return boards[0]?.id ?? ''
@@ -116,6 +125,17 @@ export default function App() {
     [nearbyPlaces, customPlaces],
   )
   const { fetchRoutes } = useDirections()
+  const isDarkTheme = themeMode === 'dark'
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('theme-dark', isDarkTheme)
+    document.documentElement.dataset.theme = themeMode
+    writeLocal(THEME_KEY, themeMode)
+  }, [isDarkTheme, themeMode])
+
+  const themeToggle = (
+    <ThemeToggle mode={themeMode} isDark={isDarkTheme} onChange={setThemeMode} />
+  )
 
   // 목적지 바뀌면 편의시설 초기화 + 캐시 무효화
   useEffect(() => {
@@ -420,27 +440,33 @@ export default function App() {
 
   if (view === 'shared') {
     return (
-      <SharedView
-        boardName={activeBoard?.name ?? ''}
-        destination={destination}
-        destination2={destination2}
-        candidates={candidates}
-        onImport={handleImportShared}
-        onHome={goHome}
-      />
+      <>
+        {themeToggle}
+        <SharedView
+          boardName={activeBoard?.name ?? ''}
+          destination={destination}
+          destination2={destination2}
+          candidates={candidates}
+          onImport={handleImportShared}
+          onHome={goHome}
+        />
+      </>
     )
   }
 
   if (view === 'home') {
     return (
-      <HomeView
-        boards={boards}
-        onOpen={openBoard}
-        onAdd={addBoard}
-        onCompare={compareBoards}
-        onRename={renameBoard}
-        onDelete={deleteBoard}
-      />
+      <>
+        {themeToggle}
+        <HomeView
+          boards={boards}
+          onOpen={openBoard}
+          onAdd={addBoard}
+          onCompare={compareBoards}
+          onRename={renameBoard}
+          onDelete={deleteBoard}
+        />
+      </>
     )
   }
 
@@ -450,19 +476,24 @@ export default function App() {
       .filter((b): b is Board => !!b)
     if (selectedBoards.length === 2) {
       return (
-        <BoardCompareView
-          boards={[selectedBoards[0], selectedBoards[1]]}
-          onBack={goHome}
-          onOpen={openBoard}
-        />
+        <>
+          {themeToggle}
+          <BoardCompareView
+            boards={[selectedBoards[0], selectedBoards[1]]}
+            onBack={goHome}
+            onOpen={openBoard}
+          />
+        </>
       )
     }
   }
 
   return (
     <div className="flex h-screen w-full overflow-hidden">
+      {themeToggle}
       <div className="flex-1 relative">
         <SeoulMap
+          isDarkMode={isDarkTheme}
           mode={mode}
           destination={destination}
           destination2={destination2}

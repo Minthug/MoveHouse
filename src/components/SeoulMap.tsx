@@ -89,6 +89,7 @@ const EASE = (t: number) => 1 - Math.pow(1 - t, 3)
 const MIN_VIEW_WIDTH = 260
 
 interface Props {
+  isDarkMode: boolean
   mode: AppMode
   destination: Destination | null
   destination2?: Destination | null
@@ -99,7 +100,7 @@ interface Props {
   onDistrictClick: (name: string, lat: number, lng: number) => void
 }
 
-export default function SeoulMap({ mode, destination, destination2, candidates, selectedCandidateId, selectedRouteType, nearbyPlaces, onDistrictClick }: Props) {
+export default function SeoulMap({ isDarkMode, mode, destination, destination2, candidates, selectedCandidateId, selectedRouteType, nearbyPlaces, onDistrictClick }: Props) {
   const [guData, setGuData] = useState<SeoulData | null>(null)
   const [dongData, setDongData] = useState<DongSeoulData | null>(null)
   const [viewMode, setViewMode] = useState<'gu' | 'dong'>('gu')
@@ -385,9 +386,63 @@ export default function SeoulMap({ mode, destination, destination2, candidates, 
     goBack()
   }
 
+  const mapTheme = isDarkMode
+    ? {
+        background: '#11161d',
+        metroFill: '#252b34',
+        metroStroke: '#171d25',
+        metroLabel: '#687386',
+        backdropFill: '#1d2530',
+        neutralGu: '#2f4058',
+        neutralDong: '#263241',
+        dongSelected: '#5b7cff',
+        dongSelectedStroke: '#7f98ff',
+        dongStroke: '#11161d',
+        districtStroke: 'rgba(20,25,32,0.9)',
+        riverFill: '#17445f',
+        riverStroke: '#246988',
+        railHalo: '#11161d',
+        mapLabel: '#c8d0dc',
+        mutedLabel: '#8893a3',
+        routeHalo: '#10141a',
+        chipStroke: '#10141a',
+        bottomText: '#f2f5f9',
+        bottomMuted: '#8f9bad',
+        allLineOffBg: '#242b35',
+        allLineOffText: '#c4cad4',
+        allLineOnBg: '#f2f5f9',
+        allLineOnText: '#111827',
+      }
+    : {
+        background: '#f4f6fa',
+        metroFill: '#e4e7ec',
+        metroStroke: '#eef1f5',
+        metroLabel: '#9aa3b0',
+        backdropFill: '#eaeef5',
+        neutralGu: '#c7d4ec',
+        neutralDong: '#dbe2ee',
+        dongSelected: '#4f6ef2',
+        dongSelectedStroke: '#3a55d9',
+        dongStroke: '#ffffff',
+        districtStroke: 'rgba(255,255,255,0.78)',
+        riverFill: '#a8cfe8',
+        riverStroke: '#8ab8d8',
+        railHalo: '#ffffff',
+        mapLabel: '#5c6573',
+        mutedLabel: '#9aa3b0',
+        routeHalo: '#ffffff',
+        chipStroke: '#ffffff',
+        bottomText: '#171c26',
+        bottomMuted: '#9aa3b0',
+        allLineOffBg: '#f3f4f6',
+        allLineOffText: '#4b5563',
+        allLineOnBg: '#111827',
+        allLineOnText: '#ffffff',
+      }
+
   if (!guData) {
     return (
-      <div className="w-full h-full flex items-center justify-center bg-[#f4f6fa]">
+      <div className="w-full h-full flex items-center justify-center" style={{ background: mapTheme.background }}>
         <div className="text-gray-400 text-sm">지도 불러오는 중...</div>
       </div>
     )
@@ -503,7 +558,7 @@ export default function SeoulMap({ mode, destination, destination2, candidates, 
     if (destination && d.name === destGu) return '#ef4444'
     const ci = candGus.indexOf(d.name)
     if (ci >= 0) return CANDIDATE_COLORS[ci % CANDIDATE_COLORS.length]
-    return '#c7d4ec'
+    return mapTheme.neutralGu
   }
 
   const guOpacity = (d: GuData) => {
@@ -513,15 +568,15 @@ export default function SeoulMap({ mode, destination, destination2, candidates, 
     return 1
   }
 
-  const dongFill = (d: DongData) => (d.code === selDong?.code ? '#4f6ef2' : '#dbe2ee')
-  const dongStroke = (d: DongData) => (d.code === selDong?.code ? '#3a55d9' : '#ffffff')
+  const dongFill = (d: DongData) => (d.code === selDong?.code ? mapTheme.dongSelected : mapTheme.neutralDong)
+  const dongStroke = (d: DongData) => (d.code === selDong?.code ? mapTheme.dongSelectedStroke : mapTheme.dongStroke)
   const dongStrokeW = (d: DongData) => (d.code === selDong?.code ? 1.8 : 1.1)
 
   // viewBox 너비 기준 스케일 — 구 뷰(1000)에서 1, 동 뷰 줌인 시 비례 축소
   const mapScale = viewBox[2] / 1000
 
   return (
-    <div className="relative w-full h-full overflow-hidden" style={{ background: '#f4f6fa', fontFamily: 'Pretendard, system-ui, sans-serif' }}>
+    <div className="relative w-full h-full overflow-hidden" style={{ background: mapTheme.background, fontFamily: 'Pretendard, system-ui, sans-serif' }}>
       {/* SVG Map */}
       <svg
         ref={svgRef}
@@ -545,8 +600,8 @@ export default function SeoulMap({ mode, destination, destination2, candidates, 
             <path
               key={m.code}
               d={m.d}
-              fill="#e4e7ec"
-              stroke="#eef1f5"
+              fill={mapTheme.metroFill}
+              stroke={mapTheme.metroStroke}
               strokeWidth={1.4 * mapScale}
               strokeLinejoin="round"
               opacity={0.85}
@@ -572,7 +627,7 @@ export default function SeoulMap({ mode, destination, destination2, candidates, 
                 dominantBaseline="middle"
                 fontSize={9 * mapScale}
                 fontWeight={500}
-                fill="#9aa3b0"
+                fill={mapTheme.metroLabel}
                 letterSpacing="-0.3"
                 style={{ pointerEvents: 'none' }}
               >
@@ -584,7 +639,7 @@ export default function SeoulMap({ mode, destination, destination2, candidates, 
         {/* Backdrop in dong view */}
         {!isGu &&
           guData.districts.map((d) => (
-            <path key={d.code} d={d.d} fill="#eaeef5" stroke="#ffffff" strokeWidth={1} strokeLinejoin="round" />
+            <path key={d.code} d={d.d} fill={mapTheme.backdropFill} stroke={mapTheme.dongStroke} strokeWidth={1} strokeLinejoin="round" />
           ))}
 
         {/* Anti-alias underlay: 같은 색 stroke를 먼저 깔아 경계의 미세 공백을 메움 */}
@@ -620,7 +675,7 @@ export default function SeoulMap({ mode, destination, destination2, candidates, 
                 key={d.code}
                 d={d.d}
                 fill={guFill(d)}
-                stroke="rgba(255,255,255,0.78)"
+                stroke={mapTheme.districtStroke}
                 strokeWidth={0.75 * mapScale}
                 strokeLinejoin="round"
                 opacity={guOpacity(d)}
@@ -649,9 +704,9 @@ export default function SeoulMap({ mode, destination, destination2, candidates, 
             <path
               key={i}
               d={rd}
-              fill="#a8cfe8"
+              fill={mapTheme.riverFill}
               fillRule="evenodd"
-              stroke="#8ab8d8"
+              stroke={mapTheme.riverStroke}
               strokeWidth={0.8 * mapScale}
               strokeLinejoin="round"
               style={{ pointerEvents: 'none' }}
@@ -666,7 +721,7 @@ export default function SeoulMap({ mode, destination, destination2, candidates, 
               .join(' L ')
             return (
               <g key={`${line.id}-${si}-path`} style={{ pointerEvents: 'none' }}>
-                <path d={`M ${pts}`} fill="none" stroke="#fff" strokeWidth={5 * mapScale} strokeLinecap="round" strokeLinejoin="round" opacity={0.7} />
+                <path d={`M ${pts}`} fill="none" stroke={mapTheme.railHalo} strokeWidth={5 * mapScale} strokeLinecap="round" strokeLinejoin="round" opacity={0.7} />
                 <path d={`M ${pts}`} fill="none" stroke={line.color} strokeWidth={3.5 * mapScale} strokeLinecap="round" strokeLinejoin="round" opacity={0.9} />
               </g>
             )
@@ -683,7 +738,7 @@ export default function SeoulMap({ mode, destination, destination2, candidates, 
               const fs = 6.5 * mapScale
               return (
                 <g key={`${line.id}-${si}-${stIdx}`} style={{ pointerEvents: 'none' }}>
-                  <circle cx={sx} cy={sy} r={stR + 1.5 * mapScale} fill="#fff" />
+                  <circle cx={sx} cy={sy} r={stR + 1.5 * mapScale} fill={mapTheme.railHalo} />
                   <circle cx={sx} cy={sy} r={stR} fill={line.color} />
                   <text
                     x={sx}
@@ -691,8 +746,8 @@ export default function SeoulMap({ mode, destination, destination2, candidates, 
                     textAnchor="middle"
                     fontSize={fs}
                     fontWeight={700}
-                    fill="#222"
-                    stroke="#fff"
+                    fill={mapTheme.mapLabel}
+                    stroke={mapTheme.railHalo}
                     strokeWidth={2 * mapScale}
                     paintOrder="stroke"
                     letterSpacing="-0.2"
@@ -738,7 +793,7 @@ export default function SeoulMap({ mode, destination, destination2, candidates, 
           return (
             <g key={i} style={{ pointerEvents: 'none' }} opacity={dimmed ? 0.25 : 1}>
               {/* 흰 halo — 지도와 분리 (dash 패턴 동일 적용해 정렬 유지) */}
-              <path d={`M ${pts}`} fill="none" stroke="#fff" strokeWidth={lw * 2} strokeDasharray={dash} strokeLinecap="round" strokeLinejoin="round" opacity={0.9} />
+              <path d={`M ${pts}`} fill="none" stroke={mapTheme.routeHalo} strokeWidth={lw * 2} strokeDasharray={dash} strokeLinecap="round" strokeLinejoin="round" opacity={0.9} />
               {/* 어두운 외곽 캐싱 — 밝은 배경/같은 색 구 위에서도 대비 확보 */}
               {!isWalk && (
                 <path d={`M ${pts}`} fill="none" stroke={darken(seg.candidateColor)} strokeWidth={lw * 1.4} strokeDasharray={dash} strokeLinecap="round" strokeLinejoin="round" />
@@ -755,7 +810,7 @@ export default function SeoulMap({ mode, destination, destination2, candidates, 
               />
               {badge && (
                 <g transform={`translate(${badge.x.toFixed(1)},${badge.y.toFixed(1)})`}>
-                  <circle r={badgeR} fill="#fff" stroke={seg.candidateColor} strokeWidth={2 * mapScale} />
+                  <circle r={badgeR} fill={mapTheme.routeHalo} stroke={seg.candidateColor} strokeWidth={2 * mapScale} />
                   <text textAnchor="middle" dominantBaseline="central" fontSize={11 * mapScale}>
                     {isBus ? '🚌' : '🚇'}
                   </text>
@@ -775,7 +830,7 @@ export default function SeoulMap({ mode, destination, destination2, candidates, 
             <g key={`route-overlay-${i}`} style={{ pointerEvents: 'none' }} opacity={dimmed ? 0.25 : 1}>
               {o.stops.map((st, k) => (
                 <g key={k}>
-                  <circle cx={st.x} cy={st.y} r={4.5 * mapScale} fill="#fff" stroke={darken(o.color)} strokeWidth={2.2 * mapScale} />
+                  <circle cx={st.x} cy={st.y} r={4.5 * mapScale} fill={mapTheme.routeHalo} stroke={darken(o.color)} strokeWidth={2.2 * mapScale} />
                   {st.name && (
                     <text
                       x={st.x}
@@ -783,8 +838,8 @@ export default function SeoulMap({ mode, destination, destination2, candidates, 
                       textAnchor="middle"
                       fontSize={7.5 * mapScale}
                       fontWeight={700}
-                      fill="#1f2937"
-                      stroke="#fff"
+                      fill={mapTheme.mapLabel}
+                      stroke={mapTheme.routeHalo}
                       strokeWidth={2.5 * mapScale}
                       paintOrder="stroke"
                       letterSpacing="-0.2"
@@ -796,7 +851,7 @@ export default function SeoulMap({ mode, destination, destination2, candidates, 
               ))}
               {/* 소요시간 칩 — 경로선 위쪽에 띄워 배지와 겹침 방지 */}
               <g transform={`translate(${o.mid[0].toFixed(1)},${(o.mid[1] - 18 * mapScale).toFixed(1)})`}>
-                <rect x={-chipW / 2} y={-chipH / 2} width={chipW} height={chipH} rx={chipH / 2} fill={o.color} stroke="#fff" strokeWidth={1.8 * mapScale} />
+                <rect x={-chipW / 2} y={-chipH / 2} width={chipW} height={chipH} rx={chipH / 2} fill={o.color} stroke={mapTheme.chipStroke} strokeWidth={1.8 * mapScale} />
                 <text textAnchor="middle" dominantBaseline="central" fontSize={9.5 * mapScale} fontWeight={800} fill="#fff">
                   {label}
                 </text>
@@ -817,7 +872,7 @@ export default function SeoulMap({ mode, destination, destination2, candidates, 
           const pr = 13 * mapScale
           return (
             <g key={place.id} transform={`translate(${x.toFixed(1)},${y.toFixed(1)})`} style={{ pointerEvents: 'none' }}>
-              <circle r={pr} fill={cfg.color} stroke="#fff" strokeWidth={2 * mapScale} opacity={0.92} />
+              <circle r={pr} fill={cfg.color} stroke={mapTheme.routeHalo} strokeWidth={2 * mapScale} opacity={0.92} />
               <text textAnchor="middle" dominantBaseline="middle" fontSize={pr} opacity={1}>
                 {cfg.emoji}
               </text>
@@ -830,7 +885,7 @@ export default function SeoulMap({ mode, destination, destination2, candidates, 
           <path
             d={selGu.d}
             fill="none"
-            stroke="#4f6ef2"
+            stroke={mapTheme.dongSelected}
             strokeWidth={2.4}
             strokeLinejoin="round"
             style={{ pointerEvents: 'none' }}
@@ -853,7 +908,7 @@ export default function SeoulMap({ mode, destination, destination2, candidates, 
                     dominantBaseline="middle"
                     fontSize={10}
                     fontWeight={600}
-                    fill={isSelected ? '#fff' : '#5c6573'}
+                    fill={isSelected ? '#fff' : mapTheme.mapLabel}
                     letterSpacing="-0.3"
                   >
                     {d.name}
@@ -871,7 +926,7 @@ export default function SeoulMap({ mode, destination, destination2, candidates, 
                     dominantBaseline="middle"
                     fontSize={isSel ? 13 : 9}
                     fontWeight={isSel ? 800 : 600}
-                    fill={isSel ? '#ffffff' : '#5c6573'}
+                    fill={isSel ? '#ffffff' : mapTheme.mapLabel}
                     letterSpacing="-0.3"
                     style={{ pointerEvents: 'none' }}
                   >
@@ -893,7 +948,7 @@ export default function SeoulMap({ mode, destination, destination2, candidates, 
               opacity={p.dimmed ? 0.45 : 1}
               style={{ pointerEvents: 'none' }}
             >
-              <circle cx={0} cy={-(r + tailH)} r={r} fill={p.color} stroke="#ffffff" strokeWidth={sw} />
+              <circle cx={0} cy={-(r + tailH)} r={r} fill={p.color} stroke={mapTheme.routeHalo} strokeWidth={sw} />
               <text
                 x={0}
                 y={-(r + tailH)}
@@ -983,8 +1038,8 @@ export default function SeoulMap({ mode, destination, destination2, candidates, 
             onClick={toggleAllLines}
             className="shrink-0 px-2.5 py-1 rounded-lg text-[11px] font-bold text-left transition-all whitespace-nowrap"
             style={{
-              background: allLinesVisible ? '#111827' : '#f3f4f6',
-              color: allLinesVisible ? '#fff' : '#4b5563',
+              background: allLinesVisible ? mapTheme.allLineOnBg : mapTheme.allLineOffBg,
+              color: allLinesVisible ? mapTheme.allLineOnText : mapTheme.allLineOffText,
             }}
           >
             전체
@@ -999,7 +1054,7 @@ export default function SeoulMap({ mode, destination, destination2, candidates, 
                 className="shrink-0 px-2.5 py-1 rounded-lg text-[11px] font-bold text-left transition-all whitespace-nowrap"
                 style={{
                   background: on ? line.color : 'transparent',
-                  color: on ? '#fff' : '#6b7280',
+                  color: on ? '#fff' : mapTheme.mutedLabel,
                 }}
               >
                 {line.name}
@@ -1064,7 +1119,7 @@ export default function SeoulMap({ mode, destination, destination2, candidates, 
                 </div>
                 <div
                   className="text-xl font-extrabold truncate tracking-tight"
-                  style={{ color: selDong ? '#171c26' : '#9aa3b0' }}
+                  style={{ color: selDong ? mapTheme.bottomText : mapTheme.bottomMuted }}
                 >
                   {selDong ? selDong.name : selGu?.name}
                 </div>

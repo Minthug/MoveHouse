@@ -8,11 +8,160 @@
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'Noto Sans KR', sans-serif;
+  background: #f6f8fb;
+  color: #171c26;
 }
 
 #root {
   width: 100%;
   height: 100vh;
+}
+
+/*
+ * Toss-style dark mode.
+ * 필요 없으면 아래 .theme-dark 블록만 주석 처리하면 라이트 UI로 돌아갑니다.
+ */
+.theme-dark {
+  color-scheme: dark;
+
+  body {
+    background: #11161d;
+    color: #f2f5f9;
+  }
+
+  input,
+  textarea,
+  select {
+    background-color: #171d25;
+    color: #f2f5f9;
+    caret-color: #6f8cff;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: #6f7a89;
+  }
+
+  .bg-white,
+  .bg-white\/95,
+  .bg-white\/90,
+  .bg-white\/80 {
+    background-color: rgba(23, 29, 37, 0.96) !important;
+  }
+
+  .bg-gray-50,
+  .bg-gray-100,
+  .bg-\[\#f4f6fa\] {
+    background-color: #1d2530 !important;
+  }
+
+  .hover\:bg-gray-50:hover,
+  .hover\:bg-gray-100:hover,
+  .hover\:bg-gray-200:hover,
+  .active\:bg-gray-100:active {
+    background-color: #263241 !important;
+  }
+
+  .bg-blue-50,
+  .hover\:bg-blue-50:hover {
+    background-color: rgba(79, 110, 242, 0.16) !important;
+  }
+
+  .bg-red-50 {
+    background-color: rgba(239, 68, 68, 0.14) !important;
+  }
+
+  .bg-green-50 {
+    background-color: rgba(16, 185, 129, 0.14) !important;
+  }
+
+  .bg-yellow-50 {
+    background-color: rgba(245, 158, 11, 0.14) !important;
+  }
+
+  .text-gray-900,
+  .text-gray-800,
+  .text-gray-700 {
+    color: #f2f5f9 !important;
+  }
+
+  .text-gray-600,
+  .text-gray-500 {
+    color: #c4cad4 !important;
+  }
+
+  .text-gray-400,
+  .text-gray-300 {
+    color: #8f9bad !important;
+  }
+
+  .text-blue-600,
+  .text-blue-500,
+  .text-blue-400 {
+    color: #8ea2ff !important;
+  }
+
+  .text-green-600 {
+    color: #57d39b !important;
+  }
+
+  .text-red-400,
+  .text-red-500 {
+    color: #ff8a8a !important;
+  }
+
+  .text-yellow-500 {
+    color: #f5c15f !important;
+  }
+
+  .border-gray-50,
+  .border-gray-100,
+  .border-gray-200,
+  .border-gray-300 {
+    border-color: #2c3542 !important;
+  }
+
+  .border-blue-400 {
+    border-color: #6f8cff !important;
+  }
+
+  .ring-blue-100,
+  .ring-blue-200,
+  .focus\:ring-blue-200:focus,
+  .focus\:ring-blue-300:focus {
+    --tw-ring-color: rgba(111, 140, 255, 0.45) !important;
+  }
+
+  .shadow-sm,
+  .shadow-md,
+  .shadow-lg,
+  .shadow-xl {
+    --tw-shadow-color: rgba(0, 0, 0, 0.45) !important;
+  }
+
+  .shadow-\[0_-4px_24px_rgba\(20\,28\,46\,\.10\)\] {
+    box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.34) !important;
+  }
+
+  .leaflet-container {
+    background: #11161d !important;
+  }
+
+  .district-label,
+  .dong-label,
+  .river-tooltip {
+    color: #c8d0dc !important;
+    text-shadow: 0 0 3px rgba(17, 22, 29, 0.95), 0 0 6px rgba(17, 22, 29, 0.75);
+  }
+
+  .subway-pin-name {
+    color: #f2f5f9;
+    text-shadow:
+      1px  1px 0 #11161d, -1px -1px 0 #11161d,
+      1px -1px 0 #11161d, -1px  1px 0 #11161d,
+      0    1px 0 #11161d,  0   -1px 0 #11161d,
+      1px  0   0 #11161d, -1px  0   0 #11161d;
+  }
 }
 
 .destination-marker {
