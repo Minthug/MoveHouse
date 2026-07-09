@@ -308,6 +308,14 @@ export default function SeoulMap({ mode, destination, destination2, candidates, 
       return next
     })
   }, [])
+  const allLinesVisible = visibleLines.size === SUBWAY_LINES.length
+  const toggleAllLines = useCallback(() => {
+    setVisibleLines((prev) =>
+      prev.size === SUBWAY_LINES.length
+        ? new Set()
+        : new Set(SUBWAY_LINES.map((line) => line.id)),
+    )
+  }, [])
 
   // 후보지별 경로 표시 토글 (candidateId → visible)
   const [routeVisible, setRouteVisible] = useState<Set<string>>(new Set())
@@ -579,6 +587,32 @@ export default function SeoulMap({ mode, destination, destination2, candidates, 
             <path key={d.code} d={d.d} fill="#eaeef5" stroke="#ffffff" strokeWidth={1} strokeLinejoin="round" />
           ))}
 
+        {/* Anti-alias underlay: 같은 색 stroke를 먼저 깔아 경계의 미세 공백을 메움 */}
+        {isGu
+          ? guData.districts.map((d) => (
+              <path
+                key={`${d.code}-underlay`}
+                d={d.d}
+                fill={guFill(d)}
+                stroke={guFill(d)}
+                strokeWidth={2.4 * mapScale}
+                strokeLinejoin="round"
+                opacity={guOpacity(d)}
+                style={{ pointerEvents: 'none' }}
+              />
+            ))
+          : dongs.map((d) => (
+              <path
+                key={`${d.code}-underlay`}
+                d={d.d}
+                fill={dongFill(d)}
+                stroke={dongFill(d)}
+                strokeWidth={2.2}
+                strokeLinejoin="round"
+                style={{ pointerEvents: 'none' }}
+              />
+            ))}
+
         {/* District / dong shapes */}
         {isGu
           ? guData.districts.map((d) => (
@@ -586,8 +620,8 @@ export default function SeoulMap({ mode, destination, destination2, candidates, 
                 key={d.code}
                 d={d.d}
                 fill={guFill(d)}
-                stroke="#ffffff"
-                strokeWidth={1.2 * mapScale}
+                stroke="rgba(255,255,255,0.78)"
+                strokeWidth={0.75 * mapScale}
                 strokeLinejoin="round"
                 opacity={guOpacity(d)}
                 style={{ cursor: 'pointer' }}
@@ -602,7 +636,7 @@ export default function SeoulMap({ mode, destination, destination2, candidates, 
                 d={d.d}
                 fill={dongFill(d)}
                 stroke={dongStroke(d)}
-                strokeWidth={dongStrokeW(d)}
+                strokeWidth={dongStrokeW(d) * 0.72}
                 strokeLinejoin="round"
                 style={{ cursor: 'pointer' }}
                 onClick={() => { if (!ignoreTapAfterGesture()) setSelDong(d) }}
@@ -945,6 +979,17 @@ export default function SeoulMap({ mode, destination, destination2, candidates, 
       {/* 지하철 노선 토글 버튼 — 왼쪽 세로 컬럼 */}
       {(
         <div className="absolute left-3 top-14 z-10 flex flex-col gap-1 bg-white/90 backdrop-blur-sm rounded-xl px-2 py-2 shadow-sm max-h-[calc(100%-120px)] overflow-y-auto scrollbar-none">
+          <button
+            onClick={toggleAllLines}
+            className="shrink-0 px-2.5 py-1 rounded-lg text-[11px] font-bold text-left transition-all whitespace-nowrap"
+            style={{
+              background: allLinesVisible ? '#111827' : '#f3f4f6',
+              color: allLinesVisible ? '#fff' : '#4b5563',
+            }}
+          >
+            전체
+          </button>
+          <div className="h-px bg-gray-100 my-0.5" />
           {SUBWAY_LINES.map((line) => {
             const on = visibleLines.has(line.id)
             return (
