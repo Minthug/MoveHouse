@@ -58,11 +58,6 @@ function extractGuName(address: string): string | null {
   return GU_NAMES.find((g) => address.includes(g)) ?? null
 }
 
-function extractDongName(address: string): string | null {
-  const m = address.match(/([가-힣]+(?:동|가|로|읍|면))/)
-  return m?.[1] ?? null
-}
-
 function aspectFit(bbox: [number, number, number, number]): [number, number, number, number] {
   let [x, y, w, h] = bbox
   const px = w * 0.28, py = h * 0.28
@@ -91,6 +86,7 @@ function fitPoints(points: Array<[number, number]>, minWidth = 620): [number, nu
 }
 
 const EASE = (t: number) => 1 - Math.pow(1 - t, 3)
+const MIN_VIEW_WIDTH = 260
 
 interface Props {
   mode: AppMode
@@ -113,6 +109,10 @@ export default function SeoulMap({ mode, destination, destination2, candidates, 
   const [viewBox, setViewBox] = useState<[number, number, number, number]>(FULL_VIEWBOX)
   const vbRef = useRef<[number, number, number, number]>(FULL_VIEWBOX)
   const rafRef = useRef(0)
+  const svgRef = useRef<SVGSVGElement>(null)
+  const pinchRef = useRef<{ distance: number; viewBox: [number, number, number, number] } | null>(null)
+  const panRef = useRef<{ x: number; y: number; viewBox: [number, number, number, number]; moved: boolean } | null>(null)
+  const suppressTapRef = useRef(false)
 
   useEffect(() => {
     Promise.all([
@@ -140,6 +140,162 @@ export default function SeoulMap({ mode, destination, destination2, candidates, 
       if (p < 1) rafRef.current = requestAnimationFrame(step)
     }
     rafRef.current = requestAnimationFrame(step)
+  }
+
+  function applyViewBox(next: [number, number, number, number]) {
+    cancelAnimationFrame(rafRef.current)
+    vbRef.current = next
+    setViewBox(next)
+  }
+
+  function clientToSvgPoint(clientX: number, clientY: number): [number, number] {
+    const svg = svgRef.current
+    if (!svg) return [vbRef.current[0] + vbRef.current[2] / 2, vbRef.current[1] + vbRef.current[3] / 2]
+
+    const rect = svg.getBoundingClientRect()
+    const [x, y, w, h] = vbRef.current
+    const svgAspect = w / h
+    const rectAspect = rect.width / rect.height
+
+    let drawW = rect.width
+    let drawH = rect.height
+    let offsetX = 0
+    let offsetY = 0
+    if (rectAspect > svgAspect) {
+      drawW = rect.height * svgAspect
+      offsetX = (rect.width - drawW) / 2
+    } else {
+      drawH = rect.width / svgAspect
+      offsetY = (rect.height - drawH) / 2
+    }
+
+    const px = Math.min(1, Math.max(0, (clientX - rect.left - offsetX) / drawW))
+    const py = Math.min(1, Math.max(0, (clientY - rect.top - offsetY) / drawH))
+    return [x + px * w, y + py * h]
+  }
+
+  function zoomBy(factor: number, center?: [number, number], animate = true) {
+    const [x, y, w, h] = vbRef.current
+    const cx = center?.[0] ?? x + w / 2
+    const cy = center?.[1] ?? y + h / 2
+    const nextW = Math.max(MIN_VIEW_WIDTH, Math.min(FULL_VIEWBOX[2], w * factor))
+    const nextH = nextW / MAP_ASPECT
+    const rx = (cx - x) / w
+    const ry = (cy - y) / h
+    const next: [number, number, number, number] = [
+      cx - nextW * rx,
+      cy - nextH * ry,
+      nextW,
+      nextH,
+    ]
+    if (animate) zoomTo(next, 220)
+    else applyViewBox(next)
+  }
+
+  function touchDistance(touches: TouchList) {
+    const a = touches[0]
+    const b = touches[1]
+    return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY)
+  }
+
+  function handleTouchStart(e: React.TouchEvent<SVGSVGElement>) {
+    if (e.touches.length === 2) {
+      panRef.current = null
+      pinchRef.current = { distance: touchDistance(e.touches), viewBox: vbRef.current.slice() as [number, number, number, number] }
+      return
+    }
+    if (e.touches.length === 1) {
+      const t = e.touches[0]
+      pinchRef.current = null
+      panRef.current = { x: t.clientX, y: t.clientY, viewBox: vbRef.current.slice() as [number, number, number, number], moved: false }
+    }
+  }
+
+  function handleTouchMove(e: React.TouchEvent<SVGSVGElement>) {
+    if (e.touches.length === 2 && pinchRef.current) {
+      e.preventDefault()
+      const start = pinchRef.current
+      const dist = touchDistance(e.touches)
+      if (dist <= 0) return
+      const center = clientToSvgPoint(
+        (e.touches[0].clientX + e.touches[1].clientX) / 2,
+        (e.touches[0].clientY + e.touches[1].clientY) / 2,
+      )
+      const factor = start.distance / dist
+      const [x, y, w, h] = start.viewBox
+      vbRef.current = start.viewBox
+      const cx = center[0]
+      const cy = center[1]
+      const nextW = Math.max(MIN_VIEW_WIDTH, Math.min(FULL_VIEWBOX[2], w * factor))
+      const nextH = nextW / MAP_ASPECT
+      const rx = (cx - x) / w
+      const ry = (cy - y) / h
+      applyViewBox([cx - nextW * rx, cy - nextH * ry, nextW, nextH])
+      suppressTapRef.current = true
+      return
+    }
+
+    if (e.touches.length === 1 && panRef.current) {
+      const svg = svgRef.current
+      if (!svg) return
+      const t = e.touches[0]
+      const dx = t.clientX - panRef.current.x
+      const dy = t.clientY - panRef.current.y
+      if (Math.hypot(dx, dy) < 6 && !panRef.current.moved) return
+      e.preventDefault()
+      panRef.current.moved = true
+      suppressTapRef.current = true
+
+      const rect = svg.getBoundingClientRect()
+      const [x, y, w, h] = panRef.current.viewBox
+      const scaleX = w / rect.width
+      const scaleY = h / rect.height
+      applyViewBox([x - dx * scaleX, y - dy * scaleY, w, h])
+    }
+  }
+
+  function handleTouchEnd() {
+    if (panRef.current?.moved) suppressTapRef.current = true
+    panRef.current = null
+    pinchRef.current = null
+    window.setTimeout(() => { suppressTapRef.current = false }, 0)
+  }
+
+  function handleWheel(e: React.WheelEvent<SVGSVGElement>) {
+    e.preventDefault()
+    const center = clientToSvgPoint(e.clientX, e.clientY)
+    zoomBy(e.deltaY > 0 ? 1.18 : 0.84, center, false)
+  }
+
+  function handleMouseDown(e: React.MouseEvent<SVGSVGElement>) {
+    if (e.button !== 0) return
+    panRef.current = { x: e.clientX, y: e.clientY, viewBox: vbRef.current.slice() as [number, number, number, number], moved: false }
+  }
+
+  function handleMouseMove(e: React.MouseEvent<SVGSVGElement>) {
+    const svg = svgRef.current
+    if (!svg || !panRef.current) return
+    const dx = e.clientX - panRef.current.x
+    const dy = e.clientY - panRef.current.y
+    if (Math.hypot(dx, dy) < 4 && !panRef.current.moved) return
+    panRef.current.moved = true
+    suppressTapRef.current = true
+
+    const rect = svg.getBoundingClientRect()
+    const [x, y, w, h] = panRef.current.viewBox
+    const scaleX = w / rect.width
+    const scaleY = h / rect.height
+    applyViewBox([x - dx * scaleX, y - dy * scaleY, w, h])
+  }
+
+  function handleMouseUp() {
+    if (panRef.current?.moved) suppressTapRef.current = true
+    panRef.current = null
+    window.setTimeout(() => { suppressTapRef.current = false }, 0)
+  }
+
+  function ignoreTapAfterGesture() {
+    return suppressTapRef.current
   }
 
   // 지하철 노선도 토글
@@ -360,10 +516,20 @@ export default function SeoulMap({ mode, destination, destination2, candidates, 
     <div className="relative w-full h-full overflow-hidden" style={{ background: '#f4f6fa', fontFamily: 'Pretendard, system-ui, sans-serif' }}>
       {/* SVG Map */}
       <svg
+        ref={svgRef}
         viewBox={viewBox.join(' ')}
         className="w-full h-full"
         preserveAspectRatio="xMidYMid meet"
-        style={{ display: 'block' }}
+        style={{ display: 'block', touchAction: 'none' }}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchEnd}
+        onWheel={handleWheel}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
       >
         {/* 수도권 배경 (인천·경기) — 컨텍스트용, 비클릭 */}
         {isGu &&
@@ -425,7 +591,7 @@ export default function SeoulMap({ mode, destination, destination2, candidates, 
                 strokeLinejoin="round"
                 opacity={guOpacity(d)}
                 style={{ cursor: 'pointer' }}
-                onClick={() => drillTo(d)}
+                onClick={() => { if (!ignoreTapAfterGesture()) drillTo(d) }}
                 onMouseEnter={() => setHoveredGu(d.name)}
                 onMouseLeave={() => setHoveredGu(null)}
               />
@@ -439,7 +605,7 @@ export default function SeoulMap({ mode, destination, destination2, candidates, 
                 strokeWidth={dongStrokeW(d)}
                 strokeLinejoin="round"
                 style={{ cursor: 'pointer' }}
-                onClick={() => setSelDong(d)}
+                onClick={() => { if (!ignoreTapAfterGesture()) setSelDong(d) }}
               />
             ))}
 
@@ -797,6 +963,38 @@ export default function SeoulMap({ mode, destination, destination2, candidates, 
           })}
         </div>
       )}
+
+      {/* Zoom controls */}
+      <div className="absolute right-3 bottom-24 z-10 flex flex-col overflow-hidden rounded-xl bg-white/95 shadow-md border border-gray-100">
+        <button
+          onClick={() => zoomBy(0.72)}
+          className="w-10 h-10 flex items-center justify-center text-lg font-bold text-gray-700 hover:bg-gray-50 active:bg-gray-100 transition-colors"
+          title="확대"
+        >
+          +
+        </button>
+        <div className="h-px bg-gray-100" />
+        <button
+          onClick={() => zoomBy(1.35)}
+          className="w-10 h-10 flex items-center justify-center text-lg font-bold text-gray-700 hover:bg-gray-50 active:bg-gray-100 transition-colors"
+          title="축소"
+        >
+          -
+        </button>
+        <div className="h-px bg-gray-100" />
+        <button
+          onClick={() => {
+            setViewMode('gu')
+            setSelGu(null)
+            setSelDong(null)
+            zoomTo(FULL_VIEWBOX, 360)
+          }}
+          className="w-10 h-9 flex items-center justify-center text-[11px] font-bold text-gray-500 hover:bg-gray-50 active:bg-gray-100 transition-colors"
+          title="전체 보기"
+        >
+          전체
+        </button>
+      </div>
 
       {/* Bottom: hint or dong confirmation sheet */}
       <div className="absolute bottom-0 left-0 right-0 z-10">
