@@ -33,7 +33,7 @@ const OVERPASS_TAGS: Record<PlaceCategory, string[]> = {
   PK6: ['["leisure"="park"]', '["leisure"="garden"]'],
 }
 
-const OVERPASS_URL = '/api/overpass'
+const OVERPASS_URL = apiUrl('/api/overpass')
 
 // In-memory cache keyed by sorted location IDs + category
 const overpassCache = new Map<string, NearbyPlace[]>()

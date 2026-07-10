@@ -5,7 +5,7 @@ export default defineConfig({
   brand: {
     displayName: '이사 통근 비교',
     primaryColor: '#3B82F6',
-    icon: '',
+    icon: '/app-icon.svg',
   },
   web: {
     host: 'localhost',
