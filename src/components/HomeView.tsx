@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import type { ReactNode } from 'react'
 import type { Board } from '../types'
 
 const COMPARE_GUIDE_KEY = 'commute-board-compare-guide-seen'
@@ -18,9 +19,10 @@ interface Props {
   onCompare: (ids: [string, string]) => void
   onRename: (id: string, name: string) => void
   onDelete: (id: string) => void
+  themeToggle?: ReactNode
 }
 
-export default function HomeView({ boards, onOpen, onAdd, onCompare, onRename, onDelete }: Props) {
+export default function HomeView({ boards, onOpen, onAdd, onCompare, onRename, onDelete, themeToggle }: Props) {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
   const [selecting, setSelecting] = useState(false)
@@ -166,12 +168,15 @@ export default function HomeView({ boards, onOpen, onAdd, onCompare, onRename, o
               비교할 상황을 페이지로 만들어 두고 골라 보세요. 각 비교는 목적지와 후보지 최대 5곳을 담아요.
             </p>
           </div>
-          <button
-            onClick={onAdd}
-            className="shrink-0 text-xs font-semibold text-white bg-gray-800 hover:bg-gray-900 px-3 py-2 rounded-full transition-colors"
-          >
-            새 비교
-          </button>
+          <div className="shrink-0 flex items-center gap-2">
+            {themeToggle}
+            <button
+              onClick={onAdd}
+              className="text-xs font-semibold text-white bg-gray-800 hover:bg-gray-900 px-3 py-2 rounded-full transition-colors"
+            >
+              새 비교
+            </button>
+          </div>
         </div>
 
         <div className="mt-6 rounded-2xl bg-white border border-gray-200 shadow-sm px-3 py-3">

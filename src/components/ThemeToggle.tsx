@@ -23,7 +23,7 @@ export default function ThemeToggle({ mode, isDark, onChange }: Props) {
     <button
       type="button"
       onClick={() => onChange(next)}
-      className="fixed right-3 top-3 z-[60] inline-flex h-9 items-center gap-1.5 rounded-full border border-gray-200 bg-white/90 px-3 text-xs font-bold text-gray-700 shadow-sm backdrop-blur-sm transition-colors hover:bg-gray-50 active:scale-95"
+      className="inline-flex h-9 items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 text-xs font-bold text-gray-700 shadow-sm transition-colors hover:bg-gray-50 active:scale-95"
       title={`테마 변경: 다음 ${LABELS[next]}`}
       aria-label={`현재 테마 ${LABELS[mode]}`}
     >

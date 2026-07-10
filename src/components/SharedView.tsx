@@ -1,4 +1,5 @@
 import Linkify from './Linkify'
+import type { ReactNode } from 'react'
 import { calcMonthlyFare } from '../services/directions'
 import type { CandidateLocation, Destination, RouteResult } from '../types'
 
@@ -36,9 +37,10 @@ interface Props {
   candidates: CandidateLocation[]
   onImport: () => void
   onHome: () => void
+  themeToggle?: ReactNode
 }
 
-export default function SharedView({ boardName, destination, destination2, candidates, onImport, onHome }: Props) {
+export default function SharedView({ boardName, destination, destination2, candidates, onImport, onHome, themeToggle }: Props) {
   const hasDest2 = !!destination2
   const dur = (c: CandidateLocation) =>
     (c.routes.transit?.duration ?? 0) + (hasDest2 ? (c.routes2?.transit?.duration ?? 0) : 0)
@@ -66,12 +68,15 @@ export default function SharedView({ boardName, destination, destination2, candi
             <h1 className="text-2xl font-extrabold text-gray-900 truncate">{boardName || '이사 후보 비교'}</h1>
             <p className="text-xs text-gray-500 mt-1">상대가 고른 후보지들을 내 목적지 기준으로도 다시 볼 수 있어요.</p>
           </div>
-          <button
-            onClick={onImport}
-            className="shrink-0 text-sm font-semibold text-white bg-blue-500 hover:bg-blue-600 px-4 py-2 rounded-xl transition-colors"
-          >
-            내 기준으로 같이 비교하기
-          </button>
+          <div className="shrink-0 flex items-center gap-2">
+            {themeToggle}
+            <button
+              onClick={onImport}
+              className="text-sm font-semibold text-white bg-blue-500 hover:bg-blue-600 px-4 py-2 rounded-xl transition-colors"
+            >
+              내 기준으로 같이 비교하기
+            </button>
+          </div>
         </div>
 
         {/* 목적지 */}

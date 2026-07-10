@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react'
+import type { ReactNode } from 'react'
 import LocationCard from './LocationCard'
 import SearchBar from './SearchBar'
 import CompareAnalysis from './CompareAnalysis'
@@ -85,6 +86,7 @@ interface Props {
   onClearCustomPlaces: () => void
   onMemoChange: (id: string, memo: string) => void
   onRentChange: (id: string, rent: number | undefined) => void
+  themeToggle?: ReactNode
 }
 
 export default function ComparePanel({
@@ -114,6 +116,7 @@ export default function ComparePanel({
   onClearCustomPlaces,
   onMemoChange,
   onRentChange,
+  themeToggle,
 }: Props) {
   const [showAnalysis, setShowAnalysis] = useState(false)
   const readyCandidates = candidates.filter((c) => c.routes.transit && !c.loading)
@@ -144,6 +147,7 @@ export default function ComparePanel({
             <span className="text-sm leading-none">‹</span> 내 비교 목록
           </button>
           <div className="flex items-center gap-2 shrink-0">
+            {themeToggle}
             {destination && candidates.length > 0 && (
               <button
                 onClick={onShare}

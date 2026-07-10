@@ -440,33 +440,29 @@ export default function App() {
 
   if (view === 'shared') {
     return (
-      <>
-        {themeToggle}
-        <SharedView
-          boardName={activeBoard?.name ?? ''}
-          destination={destination}
-          destination2={destination2}
-          candidates={candidates}
-          onImport={handleImportShared}
-          onHome={goHome}
-        />
-      </>
+      <SharedView
+        boardName={activeBoard?.name ?? ''}
+        destination={destination}
+        destination2={destination2}
+        candidates={candidates}
+        onImport={handleImportShared}
+        onHome={goHome}
+        themeToggle={themeToggle}
+      />
     )
   }
 
   if (view === 'home') {
     return (
-      <>
-        {themeToggle}
-        <HomeView
-          boards={boards}
-          onOpen={openBoard}
-          onAdd={addBoard}
-          onCompare={compareBoards}
-          onRename={renameBoard}
-          onDelete={deleteBoard}
-        />
-      </>
+      <HomeView
+        boards={boards}
+        onOpen={openBoard}
+        onAdd={addBoard}
+        onCompare={compareBoards}
+        onRename={renameBoard}
+        onDelete={deleteBoard}
+        themeToggle={themeToggle}
+      />
     )
   }
 
@@ -476,21 +472,18 @@ export default function App() {
       .filter((b): b is Board => !!b)
     if (selectedBoards.length === 2) {
       return (
-        <>
-          {themeToggle}
-          <BoardCompareView
-            boards={[selectedBoards[0], selectedBoards[1]]}
-            onBack={goHome}
-            onOpen={openBoard}
-          />
-        </>
+        <BoardCompareView
+          boards={[selectedBoards[0], selectedBoards[1]]}
+          onBack={goHome}
+          onOpen={openBoard}
+          themeToggle={themeToggle}
+        />
       )
     }
   }
 
   return (
     <div className="flex h-screen w-full overflow-hidden">
-      {themeToggle}
       <div className="flex-1 relative">
         <SeoulMap
           isDarkMode={isDarkTheme}
@@ -536,6 +529,7 @@ export default function App() {
           onClearCustomPlaces={() => setCustomPlaces([])}
           onMemoChange={handleMemoChange}
           onRentChange={handleRentChange}
+          themeToggle={themeToggle}
         />
       </div>
     </div>

@@ -1,9 +1,11 @@
+import type { ReactNode } from 'react'
 import type { Board, CandidateLocation } from '../types'
 
 interface Props {
   boards: [Board, Board]
   onBack: () => void
   onOpen: (id: string) => void
+  themeToggle?: ReactNode
 }
 
 function fmtDuration(minutes?: number) {
@@ -238,7 +240,7 @@ function BoardColumn({ board, onOpen }: { board: Board; onOpen: (id: string) => 
   )
 }
 
-export default function BoardCompareView({ boards, onBack, onOpen }: Props) {
+export default function BoardCompareView({ boards, onBack, onOpen, themeToggle }: Props) {
   return (
     <div className="w-full h-screen overflow-y-auto bg-[#f4f6fa]" style={{ fontFamily: 'Pretendard, system-ui, sans-serif' }}>
       <div className="max-w-5xl mx-auto px-6 py-8">
@@ -249,9 +251,12 @@ export default function BoardCompareView({ boards, onBack, onOpen }: Props) {
           >
             <span className="text-sm leading-none">‹</span> 비교 목록
           </button>
-          <div className="min-w-0 text-right">
-            <div className="text-xs font-bold text-gray-900">보드 2개 비교 중</div>
-            <div className="text-[11px] text-gray-400 truncate">{boards[0].name} / {boards[1].name}</div>
+          <div className="flex items-center gap-2 min-w-0">
+            {themeToggle}
+            <div className="min-w-0 text-right">
+              <div className="text-xs font-bold text-gray-900">보드 2개 비교 중</div>
+              <div className="text-[11px] text-gray-400 truncate">{boards[0].name} / {boards[1].name}</div>
+            </div>
           </div>
         </div>
 
