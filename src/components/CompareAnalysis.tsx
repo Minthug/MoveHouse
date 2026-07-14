@@ -82,7 +82,7 @@ const FLOOR_PRESET_RECTS: Record<FloorPlanTemplate, FloorPlanRect[]> = {
   ],
 }
 
-const DEFAULT_FLOOR_PLAN: FloorPlan = { template: 'studio', rects: FLOOR_PRESET_RECTS.studio }
+const DEFAULT_FLOOR_PLAN: FloorPlan = { template: 'studio', rects: FLOOR_PRESET_RECTS.studio, person: { x: 84, y: 80 } }
 
 function makeRect(kind: FloorPlanShapeKind, index: number): FloorPlanRect {
   const label = FLOOR_SHAPE_OPTIONS.find((opt) => opt.value === kind)?.label ?? '공간'
@@ -140,6 +140,7 @@ function BuildingFloorPlan({
   const canvasRef = useRef<HTMLDivElement>(null)
   const floorPlan = candidate.floorPlan ?? DEFAULT_FLOOR_PLAN
   const rects = floorPlan.rects?.length ? floorPlan.rects : FLOOR_PRESET_RECTS[floorPlan.template]
+  const person = floorPlan.person ?? DEFAULT_FLOOR_PLAN.person!
   const selectedRect = rects.find((rect) => rect.id === selectedRectId) ?? rects[0]
   const patch = (patch: Partial<FloorPlan>) => onChange(candidate.id, { ...floorPlan, rects, ...patch })
   const setPreset = (template: FloorPlanTemplate) => {
@@ -186,6 +187,37 @@ function BuildingFloorPlan({
       } else {
         updateRect(rect.id, { w: startRect.w + dx, h: startRect.h + dy })
       }
+    }
+
+    const onPointerUp = () => {
+      window.removeEventListener('pointermove', onPointerMove)
+      window.removeEventListener('pointerup', onPointerUp)
+      window.removeEventListener('pointercancel', onPointerUp)
+    }
+
+    window.addEventListener('pointermove', onPointerMove)
+    window.addEventListener('pointerup', onPointerUp)
+    window.addEventListener('pointercancel', onPointerUp)
+  }
+  const startPersonDrag = (event: React.PointerEvent) => {
+    event.preventDefault()
+    event.stopPropagation()
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const bounds = canvas.getBoundingClientRect()
+    const startX = event.clientX
+    const startY = event.clientY
+    const startPerson = person
+
+    const onPointerMove = (moveEvent: PointerEvent) => {
+      const dx = ((moveEvent.clientX - startX) / bounds.width) * 100
+      const dy = ((moveEvent.clientY - startY) / bounds.height) * 100
+      patch({
+        person: {
+          x: Math.min(Math.max(startPerson.x + dx, 3), 97),
+          y: Math.min(Math.max(startPerson.y + dy, 3), 97),
+        },
+      })
     }
 
     const onPointerUp = () => {
@@ -262,7 +294,13 @@ function BuildingFloorPlan({
               className={`absolute flex touch-none items-center justify-center rounded border-2 px-1 text-[11px] font-bold shadow-sm ${config.className} ${
                 selected ? 'ring-2 ring-blue-400 ring-offset-1' : ''
               }`}
-              style={{ left: `${rect.x}%`, top: `${rect.y}%`, width: `${rect.w}%`, height: `${rect.h}%` }}
+              style={{
+                left: `${rect.x}%`,
+                top: `${rect.y}%`,
+                width: `${rect.w}%`,
+                height: `${rect.h}%`,
+                transform: `rotate(${rect.rotation ?? 0}deg)`,
+              }}
             >
               <span className="truncate">{rect.label}</span>
               {selected && (
@@ -275,6 +313,17 @@ function BuildingFloorPlan({
             </button>
           )
         })}
+        <button
+          type="button"
+          onPointerDown={startPersonDrag}
+          className="absolute flex touch-none flex-col items-center gap-1"
+          style={{ left: `${person.x}%`, top: `${person.y}%`, transform: 'translate(-50%, -50%)' }}
+          title="사람 기준 이동"
+        >
+          <span className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-gray-700 bg-white/90 text-[10px] font-bold text-gray-700 shadow-sm">
+            사람
+          </span>
+        </button>
       </div>
 
       {selectedRect && (
@@ -312,6 +361,32 @@ function BuildingFloorPlan({
                 />
               </label>
             ))}
+          </div>
+          <div className="mt-2 grid grid-cols-[1fr_auto_auto] gap-1.5">
+            <label className="text-[10px] font-medium text-gray-400">
+              회전
+              <input
+                type="number"
+                inputMode="numeric"
+                value={Math.round(selectedRect.rotation ?? 0)}
+                onChange={(e) => updateRect(selectedRect.id, { rotation: Number(e.target.value) || 0 })}
+                className="mt-1 w-full rounded border border-gray-200 px-1.5 py-1 text-center text-xs font-semibold text-gray-700 outline-none focus:border-blue-300"
+              />
+            </label>
+            <button
+              type="button"
+              onClick={() => updateRect(selectedRect.id, { rotation: (selectedRect.rotation ?? 0) - 15 })}
+              className="self-end rounded border border-gray-200 px-2 py-1 text-xs font-semibold text-gray-500"
+            >
+              -15°
+            </button>
+            <button
+              type="button"
+              onClick={() => updateRect(selectedRect.id, { rotation: (selectedRect.rotation ?? 0) + 15 })}
+              className="self-end rounded border border-gray-200 px-2 py-1 text-xs font-semibold text-gray-500"
+            >
+              +15°
+            </button>
           </div>
         </div>
       )}

@@ -41,11 +41,13 @@ export interface FloorPlanRect {
   y: number
   w: number
   h: number
+  rotation?: number
 }
 
 export interface FloorPlan {
   template: FloorPlanTemplate
   rects?: FloorPlanRect[]
+  person?: { x: number; y: number }
   areaM2?: number
   memo?: string
 }
