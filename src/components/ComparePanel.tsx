@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 import LocationCard from './LocationCard'
 import SearchBar from './SearchBar'
 import CompareAnalysis from './CompareAnalysis'
-import type { CandidateLocation, Destination } from '../types'
+import type { CandidateLocation, Destination, FloorPlan } from '../types'
 import { PLACE_CATEGORIES } from '../services/places'
 import type { PlaceCategory, NearbyPlace } from '../services/places'
 
@@ -86,6 +86,7 @@ interface Props {
   onClearCustomPlaces: () => void
   onMemoChange: (id: string, memo: string) => void
   onRentChange: (id: string, rent: number | undefined) => void
+  onFloorPlanChange: (id: string, floorPlan: FloorPlan | undefined) => void
   themeToggle?: ReactNode
 }
 
@@ -116,6 +117,7 @@ export default function ComparePanel({
   onClearCustomPlaces,
   onMemoChange,
   onRentChange,
+  onFloorPlanChange,
   themeToggle,
 }: Props) {
   const [showAnalysis, setShowAnalysis] = useState(false)
@@ -129,6 +131,7 @@ export default function ComparePanel({
         hasDest2={!!destination2}
         selectedCandidateId={selectedCandidateId}
         onSelectCandidate={(id) => onSelectCandidate(id, 'transit')}
+        onFloorPlanChange={onFloorPlanChange}
         onBack={() => setShowAnalysis(false)}
       />
     )

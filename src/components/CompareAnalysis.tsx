@@ -1,5 +1,6 @@
+import { useRef, useState } from 'react'
 import { calcMonthlyFare } from '../services/directions'
-import type { CandidateLocation, RouteResult } from '../types'
+import type { CandidateLocation, FloorPlan, FloorPlanRect, FloorPlanShapeKind, FloorPlanTemplate, RouteResult } from '../types'
 
 // 경로에서 환승 횟수·총 도보 시간 추출
 function legStats(r?: RouteResult): { transfers: number; walk: number } {
@@ -43,15 +44,323 @@ function lineColor(name?: string) {
   return '#6b7280'
 }
 
+const FLOOR_PLAN_LABELS: Record<FloorPlanTemplate, string> = {
+  studio: '원룸',
+  separated: '분리형',
+  'two-room': '투룸',
+}
+
+const FLOOR_SHAPE_OPTIONS: Array<{ value: FloorPlanShapeKind; label: string; className: string }> = [
+  { value: 'room', label: '방', className: 'border-blue-300 bg-blue-50 text-blue-700' },
+  { value: 'living', label: '거실', className: 'border-indigo-300 bg-indigo-50 text-indigo-700' },
+  { value: 'kitchen', label: '주방', className: 'border-amber-300 bg-amber-50 text-amber-700' },
+  { value: 'bath', label: '욕실', className: 'border-cyan-300 bg-cyan-50 text-cyan-700' },
+  { value: 'entry', label: '현관', className: 'border-gray-300 bg-gray-100 text-gray-600' },
+  { value: 'balcony', label: '베란다', className: 'border-emerald-300 bg-emerald-50 text-emerald-700' },
+]
+
+const FLOOR_PRESET_RECTS: Record<FloorPlanTemplate, FloorPlanRect[]> = {
+  studio: [
+    { id: 'room-1', kind: 'room', label: '방', x: 8, y: 8, w: 84, h: 58 },
+    { id: 'kitchen-1', kind: 'kitchen', label: '주방', x: 8, y: 70, w: 46, h: 22 },
+    { id: 'bath-1', kind: 'bath', label: '욕실', x: 58, y: 70, w: 20, h: 22 },
+    { id: 'entry-1', kind: 'entry', label: '현관', x: 80, y: 70, w: 12, h: 22 },
+  ],
+  separated: [
+    { id: 'room-1', kind: 'room', label: '방', x: 8, y: 8, w: 56, h: 84 },
+    { id: 'kitchen-1', kind: 'kitchen', label: '주방', x: 68, y: 8, w: 24, h: 44 },
+    { id: 'bath-1', kind: 'bath', label: '욕실', x: 68, y: 56, w: 24, h: 18 },
+    { id: 'entry-1', kind: 'entry', label: '현관', x: 68, y: 78, w: 24, h: 14 },
+  ],
+  'two-room': [
+    { id: 'living-1', kind: 'living', label: '거실', x: 8, y: 8, w: 48, h: 42 },
+    { id: 'room-1', kind: 'room', label: '방 1', x: 60, y: 8, w: 32, h: 42 },
+    { id: 'room-2', kind: 'room', label: '방 2', x: 8, y: 54, w: 36, h: 38 },
+    { id: 'kitchen-1', kind: 'kitchen', label: '주방', x: 48, y: 54, w: 26, h: 38 },
+    { id: 'bath-1', kind: 'bath', label: '욕실', x: 78, y: 54, w: 14, h: 20 },
+    { id: 'entry-1', kind: 'entry', label: '현관', x: 78, y: 78, w: 14, h: 14 },
+  ],
+}
+
+const DEFAULT_FLOOR_PLAN: FloorPlan = { template: 'studio', rects: FLOOR_PRESET_RECTS.studio }
+
+function makeRect(kind: FloorPlanShapeKind, index: number): FloorPlanRect {
+  const label = FLOOR_SHAPE_OPTIONS.find((opt) => opt.value === kind)?.label ?? '공간'
+  const offset = (index * 7) % 26
+  return {
+    id: `${kind}-${Date.now().toString(36)}-${index}`,
+    kind,
+    label,
+    x: 10 + offset,
+    y: 10 + offset,
+    w: kind === 'bath' || kind === 'entry' ? 20 : 34,
+    h: kind === 'bath' || kind === 'entry' ? 18 : 28,
+  }
+}
+
+function clampRect(rect: FloorPlanRect): FloorPlanRect {
+  const w = Math.min(Math.max(rect.w, 8), 100)
+  const h = Math.min(Math.max(rect.h, 8), 100)
+  return {
+    ...rect,
+    w,
+    h,
+    x: Math.min(Math.max(rect.x, 0), 100 - w),
+    y: Math.min(Math.max(rect.y, 0), 100 - h),
+  }
+}
+
+function rectsOverlap(a: FloorPlanRect, b: FloorPlanRect): boolean {
+  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y
+}
+
+function hasCollision(rect: FloorPlanRect, rects: FloorPlanRect[]): boolean {
+  return rects.some((other) => other.id !== rect.id && rectsOverlap(rect, other))
+}
+
+function findFreeRect(kind: FloorPlanShapeKind, rects: FloorPlanRect[]): FloorPlanRect | null {
+  const base = makeRect(kind, rects.length)
+  for (let y = 4; y <= 86; y += 6) {
+    for (let x = 4; x <= 86; x += 6) {
+      const candidate = clampRect({ ...base, x, y })
+      if (!hasCollision(candidate, rects)) return candidate
+    }
+  }
+  return null
+}
+
+function BuildingFloorPlan({
+  candidate,
+  onChange,
+}: {
+  candidate: CandidateLocation
+  onChange: (id: string, floorPlan: FloorPlan | undefined) => void
+}) {
+  const [selectedRectId, setSelectedRectId] = useState<string | null>(null)
+  const canvasRef = useRef<HTMLDivElement>(null)
+  const floorPlan = candidate.floorPlan ?? DEFAULT_FLOOR_PLAN
+  const rects = floorPlan.rects?.length ? floorPlan.rects : FLOOR_PRESET_RECTS[floorPlan.template]
+  const selectedRect = rects.find((rect) => rect.id === selectedRectId) ?? rects[0]
+  const patch = (patch: Partial<FloorPlan>) => onChange(candidate.id, { ...floorPlan, rects, ...patch })
+  const setPreset = (template: FloorPlanTemplate) => {
+    const nextRects = FLOOR_PRESET_RECTS[template]
+    setSelectedRectId(nextRects[0]?.id ?? null)
+    patch({ template, rects: nextRects })
+  }
+  const addRect = (kind: FloorPlanShapeKind) => {
+    const rect = findFreeRect(kind, rects)
+    if (!rect) return
+    const next = [...rects, rect]
+    setSelectedRectId(rect.id)
+    patch({ rects: next })
+  }
+  const updateRect = (id: string, patchRect: Partial<FloorPlanRect>) => {
+    const target = rects.find((rect) => rect.id === id)
+    if (!target) return
+    const nextRect = clampRect({ ...target, ...patchRect })
+    if (hasCollision(nextRect, rects)) return
+    patch({ rects: rects.map((rect) => rect.id === id ? nextRect : rect) })
+  }
+  const removeRect = (id: string) => {
+    const next = rects.filter((rect) => rect.id !== id)
+    setSelectedRectId(next[0]?.id ?? null)
+    patch({ rects: next })
+  }
+  const shapeConfig = (kind: FloorPlanShapeKind) => FLOOR_SHAPE_OPTIONS.find((opt) => opt.value === kind) ?? FLOOR_SHAPE_OPTIONS[0]
+  const startDrag = (event: React.PointerEvent, rect: FloorPlanRect, mode: 'move' | 'resize') => {
+    event.preventDefault()
+    event.stopPropagation()
+    setSelectedRectId(rect.id)
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const bounds = canvas.getBoundingClientRect()
+    const startX = event.clientX
+    const startY = event.clientY
+    const startRect = rect
+
+    const onPointerMove = (moveEvent: PointerEvent) => {
+      const dx = ((moveEvent.clientX - startX) / bounds.width) * 100
+      const dy = ((moveEvent.clientY - startY) / bounds.height) * 100
+      if (mode === 'move') {
+        updateRect(rect.id, { x: startRect.x + dx, y: startRect.y + dy })
+      } else {
+        updateRect(rect.id, { w: startRect.w + dx, h: startRect.h + dy })
+      }
+    }
+
+    const onPointerUp = () => {
+      window.removeEventListener('pointermove', onPointerMove)
+      window.removeEventListener('pointerup', onPointerUp)
+      window.removeEventListener('pointercancel', onPointerUp)
+    }
+
+    window.addEventListener('pointermove', onPointerMove)
+    window.addEventListener('pointerup', onPointerUp)
+    window.addEventListener('pointercancel', onPointerUp)
+  }
+
+  return (
+    <div className="mt-3 rounded-xl border border-gray-200 bg-gray-50 p-3" onClick={(e) => e.stopPropagation()}>
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <div>
+          <p className="text-xs font-bold text-gray-800">도면도</p>
+          <p className="text-[11px] text-gray-400">직접 그리는 간단 방 구조</p>
+        </div>
+        {candidate.floorPlan && (
+          <button
+            type="button"
+            onClick={() => onChange(candidate.id, undefined)}
+            className="rounded-full bg-white px-2 py-1 text-[11px] font-semibold text-gray-400 hover:text-red-500"
+          >
+            지우기
+          </button>
+        )}
+      </div>
+
+      <div className="mb-3 grid grid-cols-3 gap-1.5">
+        {(Object.keys(FLOOR_PLAN_LABELS) as FloorPlanTemplate[]).map((template) => (
+          <button
+            key={template}
+            type="button"
+            onClick={() => setPreset(template)}
+            className={`rounded-lg border px-2 py-1.5 text-xs font-semibold transition-colors ${
+              floorPlan.template === template
+                ? 'border-blue-400 bg-blue-50 text-blue-600'
+                : 'border-gray-200 bg-white text-gray-500'
+            }`}
+          >
+            {FLOOR_PLAN_LABELS[template]}
+          </button>
+        ))}
+      </div>
+
+      <div className="mb-3 flex flex-wrap gap-1.5">
+        {FLOOR_SHAPE_OPTIONS.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            onClick={() => addRect(option.value)}
+            className="rounded-full border border-gray-200 bg-white px-2 py-1 text-[11px] font-semibold text-gray-600"
+          >
+            + {option.label}
+          </button>
+        ))}
+      </div>
+
+      <div
+        ref={canvasRef}
+        className="relative h-56 touch-none overflow-hidden rounded-lg border-2 border-gray-800 bg-white bg-[linear-gradient(#eef2f7_1px,transparent_1px),linear-gradient(90deg,#eef2f7_1px,transparent_1px)] bg-[size:20px_20px]"
+      >
+        {rects.map((rect) => {
+          const config = shapeConfig(rect.kind)
+          const selected = selectedRect?.id === rect.id
+          return (
+            <button
+              key={rect.id}
+              type="button"
+              onPointerDown={(event) => startDrag(event, rect, 'move')}
+              className={`absolute flex touch-none items-center justify-center rounded border-2 px-1 text-[11px] font-bold shadow-sm ${config.className} ${
+                selected ? 'ring-2 ring-blue-400 ring-offset-1' : ''
+              }`}
+              style={{ left: `${rect.x}%`, top: `${rect.y}%`, width: `${rect.w}%`, height: `${rect.h}%` }}
+            >
+              <span className="truncate">{rect.label}</span>
+              {selected && (
+                <span
+                  className="absolute -bottom-1.5 -right-1.5 h-4 w-4 rounded-full border-2 border-white bg-blue-500 shadow"
+                  onPointerDown={(event) => startDrag(event, rect, 'resize')}
+                  title="크기 조절"
+                />
+              )}
+            </button>
+          )
+        })}
+      </div>
+
+      {selectedRect && (
+        <div className="mt-3 rounded-lg border border-gray-200 bg-white p-2">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <input
+              type="text"
+              value={selectedRect.label}
+              onChange={(e) => updateRect(selectedRect.id, { label: e.target.value || shapeConfig(selectedRect.kind).label })}
+              className="min-w-0 flex-1 rounded-lg border border-gray-200 px-2 py-1.5 text-[16px] font-semibold text-gray-700 outline-none focus:border-blue-300 lg:text-xs"
+            />
+            <button
+              type="button"
+              onClick={() => removeRect(selectedRect.id)}
+              className="rounded-lg bg-gray-50 px-2 py-1.5 text-xs font-semibold text-gray-400 hover:text-red-500"
+            >
+              삭제
+            </button>
+          </div>
+          <div className="grid grid-cols-4 gap-1.5">
+            {([
+              ['x', '좌'],
+              ['y', '상'],
+              ['w', '폭'],
+              ['h', '높이'],
+            ] as const).map(([key, label]) => (
+              <label key={key} className="text-[10px] font-medium text-gray-400">
+                {label}
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  value={Math.round(selectedRect[key])}
+                  onChange={(e) => updateRect(selectedRect.id, { [key]: Number(e.target.value) || 0 })}
+                  className="mt-1 w-full rounded border border-gray-200 px-1.5 py-1 text-center text-xs font-semibold text-gray-700 outline-none focus:border-blue-300"
+                />
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="mt-3 grid grid-cols-[88px_1fr] gap-2">
+        <label className="text-[11px] font-medium text-gray-500">
+          면적
+          <input
+            type="number"
+            inputMode="decimal"
+            value={floorPlan.areaM2 ?? ''}
+            onChange={(e) => {
+              const value = Number(e.target.value)
+              patch({ areaM2: e.target.value === '' || !Number.isFinite(value) ? undefined : value })
+            }}
+            placeholder="m²"
+            className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-[16px] text-gray-700 outline-none focus:border-blue-300 lg:text-xs"
+          />
+        </label>
+        <label className="text-[11px] font-medium text-gray-500">
+          구조 메모
+          <input
+            type="text"
+            value={floorPlan.memo ?? ''}
+            onChange={(e) => patch({ memo: e.target.value || undefined })}
+            placeholder="예: 창 남향, 세탁기 베란다"
+            className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-[16px] text-gray-700 outline-none focus:border-blue-300 lg:text-xs"
+          />
+        </label>
+      </div>
+      {!candidate.floorPlan && (
+        <p className="mt-2 text-[11px] text-gray-400">
+          사각형을 추가하거나 값을 입력하면 이 후보지에 저장돼요.
+        </p>
+      )}
+    </div>
+  )
+}
+
 interface Props {
   candidates: CandidateLocation[]
   hasDest2?: boolean
   selectedCandidateId: string | null
   onSelectCandidate: (id: string, routeType: 'transit' | 'bus') => void
+  onFloorPlanChange: (id: string, floorPlan: FloorPlan | undefined) => void
   onBack: () => void
 }
 
-export default function CompareAnalysis({ candidates, hasDest2, selectedCandidateId, onSelectCandidate, onBack }: Props) {
+export default function CompareAnalysis({ candidates, hasDest2, selectedCandidateId, onSelectCandidate, onFloorPlanChange, onBack }: Props) {
   // 합산 기준: 두 목적지 모두 경로가 있어야 비교 대상
   const ready = candidates.filter((c) =>
     !c.loading && c.routes.transit && (!hasDest2 || c.routes2?.transit),
@@ -268,6 +577,13 @@ export default function CompareAnalysis({ candidates, hasDest2, selectedCandidat
                         </span>
                       ))}
                     </div>
+                  )}
+
+                  {isSelected && (
+                    <BuildingFloorPlan
+                      candidate={c}
+                      onChange={onFloorPlanChange}
+                    />
                   )}
                 </div>
               </div>

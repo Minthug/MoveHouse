@@ -9,7 +9,7 @@ import type { ThemeMode } from './components/ThemeToggle'
 import { useDirections } from './hooks/useDirections'
 import { fetchNearbyPlaces, searchPlacesByKeyword, clearOverpassCache } from './services/places'
 import type { PlaceCategory, NearbyPlace } from './services/places'
-import type { AppMode, Board, CandidateLocation, Destination } from './types'
+import type { AppMode, Board, CandidateLocation, Destination, FloorPlan } from './types'
 import { createShareUrl, decodeShare, getShareId, fetchSharedById } from './lib/share'
 import type { ShareData } from './lib/share'
 
@@ -376,6 +376,10 @@ export default function App() {
     setCandidates((prev) => prev.map((c) => c.id === id ? { ...c, rent } : c))
   }
 
+  function handleFloorPlanChange(id: string, floorPlan: FloorPlan | undefined) {
+    setCandidates((prev) => prev.map((c) => c.id === id ? { ...c, floorPlan } : c))
+  }
+
   function handleReset() {
     // 활성 보드 내용만 비움 (보드 자체는 유지)
     patchActive({ destination: null, destination2: null, candidates: [] })
@@ -540,6 +544,7 @@ export default function App() {
       onClearCustomPlaces={() => setCustomPlaces([])}
       onMemoChange={handleMemoChange}
       onRentChange={handleRentChange}
+      onFloorPlanChange={handleFloorPlanChange}
       themeToggle={themeToggle}
     />
   )

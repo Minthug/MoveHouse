@@ -30,6 +30,26 @@ export interface CandidateRoutes {
   bus?: RouteResult | null // 버스 우선: undefined=미조회, null=조회했지만 지하철과 차이 없음
 }
 
+export type FloorPlanTemplate = 'studio' | 'separated' | 'two-room'
+export type FloorPlanShapeKind = 'room' | 'living' | 'kitchen' | 'bath' | 'entry' | 'balcony'
+
+export interface FloorPlanRect {
+  id: string
+  kind: FloorPlanShapeKind
+  label: string
+  x: number
+  y: number
+  w: number
+  h: number
+}
+
+export interface FloorPlan {
+  template: FloorPlanTemplate
+  rects?: FloorPlanRect[]
+  areaM2?: number
+  memo?: string
+}
+
 export interface CandidateLocation extends Location {
   label: string // A, B, C, D, E
   routes: CandidateRoutes    // → 주 목적지(destination)
@@ -40,6 +60,7 @@ export interface CandidateLocation extends Location {
   error2?: string
   memo?: string
   rent?: number // 월세 (원). 실질 월 비용 = 월세 + 월 교통비
+  floorPlan?: FloorPlan
 }
 
 // 비교 보드: 목적지(+보조) + 후보지 세트 하나 (노션 클립보드처럼 여러 개 전환)
