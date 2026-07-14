@@ -180,7 +180,7 @@ export default function SearchBar({ placeholder, onSelect }: Props) {
 
   return (
     <div className="relative">
-      <div className="flex gap-2">
+      <div className="flex gap-1.5 lg:gap-2">
         <input
           ref={inputRef}
           type="text"
@@ -188,12 +188,12 @@ export default function SearchBar({ placeholder, onSelect }: Props) {
           onChange={(e) => { setQuery(e.target.value); setError('') }}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
-          className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+          className="min-w-0 flex-1 border border-gray-200 rounded-lg px-3 py-2 text-[16px] lg:text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
         />
         <button
           onClick={search}
           disabled={loading}
-          className="px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm transition-colors disabled:opacity-50"
+          className="shrink-0 px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50"
         >
           {loading ? '...' : '검색'}
         </button>

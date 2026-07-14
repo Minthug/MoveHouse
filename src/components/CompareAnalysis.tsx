@@ -108,7 +108,7 @@ export default function CompareAnalysis({ candidates, hasDest2, selectedCandidat
   }
 
   return (
-    <div className="flex flex-col h-full bg-gray-50">
+    <div className="flex flex-col h-full bg-gray-50 pb-[calc(72px+env(safe-area-inset-bottom))] md:pb-0">
       {/* Header */}
       <div className="p-4 bg-white border-b border-gray-200 flex items-center gap-3">
         <button

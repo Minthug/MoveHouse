@@ -104,7 +104,7 @@ export default function HomeView({ boards, onOpen, onAdd, onCompare, onRename, o
   }
 
   return (
-    <div className="w-full h-screen overflow-y-auto bg-[#f4f6fa]" style={{ fontFamily: 'Pretendard, system-ui, sans-serif' }}>
+    <div className="w-full min-h-dvh overflow-y-auto bg-[#f4f6fa]" style={{ fontFamily: 'Pretendard, system-ui, sans-serif' }}>
       {showCompareGuide && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/30 px-5">
           <div className="w-full max-w-sm rounded-2xl bg-white shadow-xl border border-gray-100 p-5">

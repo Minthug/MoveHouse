@@ -111,6 +111,7 @@ export default function App() {
   // 홈(비교 목록) ↔ 보드(편집) ↔ 공유(읽기전용). 공유 링크로 들어오면 읽기전용 결정카드.
   const [view, setView] = useState<'home' | 'board' | 'shared' | 'board-compare'>(() => (decodeShare() || getShareId() ? 'shared' : 'home'))
   const [compareBoardIds, setCompareBoardIds] = useState<[string, string] | null>(null)
+  const [mobileBoardTab, setMobileBoardTab] = useState<'list' | 'map'>('list')
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null)
   const [selectedRouteType, setSelectedRouteType] = useState<'transit' | 'bus'>('transit')
   const [compareInvite, setCompareInvite] = useState(false)
@@ -291,9 +292,11 @@ export default function App() {
       if (!destination) {
         setDestination({ id: makeId(), lat, lng, name, type: 'work' })
         maybeAutoName(name)
+        setMobileBoardTab('list')
       } else {
         if (destination.name === name) return
         addCandidate(lat, lng, name, destination)
+        setMobileBoardTab('list')
       }
     },
     [destination, candidates.length], // eslint-disable-line react-hooks/exhaustive-deps
@@ -302,10 +305,14 @@ export default function App() {
   function handleDestinationSelect(lat: number, lng: number, address: string) {
     setDestination({ id: makeId(), lat, lng, name: address, type: 'work' })
     maybeAutoName(address)
+    setMobileBoardTab('list')
   }
 
   function handleCandidateSelect(lat: number, lng: number, address: string) {
-    if (destination) addCandidate(lat, lng, address, destination)
+    if (destination) {
+      addCandidate(lat, lng, address, destination)
+      setMobileBoardTab('list')
+    }
   }
 
   function handleDestination2Select(lat: number, lng: number, address: string) {
@@ -390,12 +397,14 @@ export default function App() {
     setActiveBoardId(id)
     setSelectedCandidateId(null)
     setCompareInvite(false)
+    setMobileBoardTab('list')
     setView('board')
   }
   function goHome() {
     setSelectedCandidateId(null)
     setCompareInvite(false)
     setCompareBoardIds(null)
+    setMobileBoardTab('list')
     setView('home')
   }
   function addBoard() {
@@ -404,6 +413,7 @@ export default function App() {
     setActiveBoardId(nb.id)
     setSelectedCandidateId(null)
     setCompareInvite(false)
+    setMobileBoardTab('list')
     setView('board')
   }
   function renameBoard(id: string, name: string) {
@@ -435,6 +445,7 @@ export default function App() {
   function handleImportShared() {
     setSelectedCandidateId(null)
     setCompareInvite(!destination2)
+    setMobileBoardTab('list')
     setView('board')
   }
 
@@ -482,55 +493,96 @@ export default function App() {
     }
   }
 
+  const renderMap = () => (
+    <SeoulMap
+      isDarkMode={isDarkTheme}
+      mode={mode}
+      destination={destination}
+      destination2={destination2}
+      candidates={candidates}
+      selectedCandidateId={selectedCandidateId}
+      selectedRouteType={selectedRouteType}
+      nearbyPlaces={allNearbyPlaces}
+      onDistrictClick={handleDistrictClick}
+    />
+  )
+
+  const renderPanel = () => (
+    <ComparePanel
+      boardName={activeBoard?.name ?? ''}
+      onBackHome={goHome}
+      onRenameBoard={(name) => activeBoard && renameBoard(activeBoard.id, name)}
+      destination={destination}
+      destination2={destination2}
+      compareInvite={compareInvite}
+      candidates={candidates}
+      selectedCandidateId={selectedCandidateId}
+      selectedRouteType={selectedRouteType}
+      onSelectCandidate={(id, routeType) => {
+        const isSameIdAndType = selectedCandidateId === id && selectedRouteType === routeType
+        setSelectedCandidateId(isSameIdAndType ? null : id)
+        if (!isSameIdAndType) setSelectedRouteType(routeType)
+        if (!isSameIdAndType) setMobileBoardTab('map')
+      }}
+      onDestinationSelect={handleDestinationSelect}
+      onDestination2Select={handleDestination2Select}
+      onRemoveDestination2={handleRemoveDestination2}
+      onCandidateSelect={handleCandidateSelect}
+      onRemoveCandidate={handleRemoveCandidate}
+      onReset={handleReset}
+      onShare={handleShare}
+      activePlaceCategories={activePlaceCategories}
+      loadingCategory={loadingCategory}
+      onToggleCategory={handleToggleCategory}
+      nearbyPlaces={nearbyPlaces}
+      customPlaces={customPlaces}
+      onKeywordSearch={handleKeywordSearch}
+      onClearCustomPlaces={() => setCustomPlaces([])}
+      onMemoChange={handleMemoChange}
+      onRentChange={handleRentChange}
+      themeToggle={themeToggle}
+    />
+  )
+
   return (
-    <div className="flex h-screen w-full overflow-hidden">
-      <div className="flex-1 relative">
-        <SeoulMap
-          isDarkMode={isDarkTheme}
-          mode={mode}
-          destination={destination}
-          destination2={destination2}
-          candidates={candidates}
-          selectedCandidateId={selectedCandidateId}
-          selectedRouteType={selectedRouteType}
-          nearbyPlaces={allNearbyPlaces}
-          onDistrictClick={handleDistrictClick}
-        />
+    <div className="relative h-dvh w-full overflow-hidden bg-[#f4f6fa]">
+      <div className="hidden h-full w-full lg:flex">
+        <div className="relative h-full flex-1">
+          {renderMap()}
+        </div>
+        <div className="flex h-full w-[360px] shrink-0 flex-col overflow-hidden">
+          {renderPanel()}
+        </div>
       </div>
-      <div className="w-[360px] shrink-0 flex flex-col overflow-hidden">
-        <ComparePanel
-          boardName={activeBoard?.name ?? ''}
-          onBackHome={goHome}
-          onRenameBoard={(name) => activeBoard && renameBoard(activeBoard.id, name)}
-          destination={destination}
-          destination2={destination2}
-          compareInvite={compareInvite}
-          candidates={candidates}
-          selectedCandidateId={selectedCandidateId}
-          selectedRouteType={selectedRouteType}
-          onSelectCandidate={(id, routeType) => {
-            const isSameIdAndType = selectedCandidateId === id && selectedRouteType === routeType
-            setSelectedCandidateId(isSameIdAndType ? null : id)
-            if (!isSameIdAndType) setSelectedRouteType(routeType)
-          }}
-          onDestinationSelect={handleDestinationSelect}
-          onDestination2Select={handleDestination2Select}
-          onRemoveDestination2={handleRemoveDestination2}
-          onCandidateSelect={handleCandidateSelect}
-          onRemoveCandidate={handleRemoveCandidate}
-          onReset={handleReset}
-          onShare={handleShare}
-          activePlaceCategories={activePlaceCategories}
-          loadingCategory={loadingCategory}
-          onToggleCategory={handleToggleCategory}
-          nearbyPlaces={nearbyPlaces}
-          customPlaces={customPlaces}
-          onKeywordSearch={handleKeywordSearch}
-          onClearCustomPlaces={() => setCustomPlaces([])}
-          onMemoChange={handleMemoChange}
-          onRentChange={handleRentChange}
-          themeToggle={themeToggle}
-        />
+
+      <div className="h-full w-full lg:hidden">
+        {mobileBoardTab === 'map' ? (
+          <div className="relative h-full w-full">
+            {renderMap()}
+          </div>
+        ) : (
+          <div className="flex h-full w-full min-h-0 flex-col overflow-hidden">
+            {renderPanel()}
+          </div>
+        )}
+      </div>
+
+      <div className="absolute bottom-[calc(8px+env(safe-area-inset-bottom))] left-1/2 z-30 flex -translate-x-1/2 rounded-full border border-gray-200 bg-white/95 p-1 shadow-lg backdrop-blur lg:hidden">
+        {(['list', 'map'] as const).map((tab) => (
+          <button
+            key={tab}
+            type="button"
+            aria-pressed={mobileBoardTab === tab}
+            onClick={() => setMobileBoardTab(tab)}
+            className={`min-w-16 rounded-full px-3 py-1.5 text-xs font-bold transition-colors ${
+              mobileBoardTab === tab
+                ? 'bg-blue-500 text-white shadow-sm'
+                : 'text-gray-500 active:bg-gray-100'
+            }`}
+          >
+            {tab === 'list' ? '목록' : '지도'}
+          </button>
+        ))}
       </div>
     </div>
   )

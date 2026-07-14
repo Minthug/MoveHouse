@@ -242,7 +242,7 @@ function BoardColumn({ board, onOpen }: { board: Board; onOpen: (id: string) => 
 
 export default function BoardCompareView({ boards, onBack, onOpen, themeToggle }: Props) {
   return (
-    <div className="w-full h-screen overflow-y-auto bg-[#f4f6fa]" style={{ fontFamily: 'Pretendard, system-ui, sans-serif' }}>
+    <div className="w-full min-h-dvh overflow-y-auto bg-[#f4f6fa]" style={{ fontFamily: 'Pretendard, system-ui, sans-serif' }}>
       <div className="max-w-5xl mx-auto px-6 py-8">
         <div className="rounded-2xl bg-white border border-gray-200 shadow-sm px-3 py-3 flex items-center justify-between gap-3">
           <button

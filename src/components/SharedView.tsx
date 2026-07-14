@@ -59,7 +59,7 @@ export default function SharedView({ boardName, destination, destination2, candi
   const minReal = realCosts.length >= 2 ? Math.min(...realCosts) : null
 
   return (
-    <div className="w-full h-screen overflow-y-auto bg-[#f4f6fa]" style={{ fontFamily: 'Pretendard, system-ui, sans-serif' }}>
+    <div className="w-full min-h-dvh overflow-y-auto bg-[#f4f6fa]" style={{ fontFamily: 'Pretendard, system-ui, sans-serif' }}>
       <div className="max-w-2xl mx-auto px-5 py-8">
         {/* 헤더 */}
         <div className="flex items-start justify-between gap-3">

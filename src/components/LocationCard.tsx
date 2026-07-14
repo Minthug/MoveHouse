@@ -174,11 +174,11 @@ export default function LocationCard({ candidate, index, selected, selectedRoute
     <div className={`bg-white border rounded-xl shadow-sm overflow-hidden transition-all ${selected ? 'border-blue-400 ring-2 ring-blue-100' : 'border-gray-200'}`}>
       {/* Header */}
       <div
-        className={`flex items-center gap-3 p-4 ${hasRoute ? 'cursor-pointer hover:bg-gray-50 transition-colors' : ''}`}
+        className={`flex items-center gap-2 lg:gap-3 p-3 lg:p-4 ${hasRoute ? 'cursor-pointer hover:bg-gray-50 transition-colors' : ''}`}
         onClick={() => hasRoute && onSelect(candidate.id, selected ? selectedRouteType : 'transit')}
       >
         <div
-          className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0"
+          className="w-7 h-7 lg:w-8 lg:h-8 rounded-full flex items-center justify-center text-white text-xs lg:text-sm font-bold shrink-0"
           style={{ background: color }}
         >
           {candidate.label}
@@ -234,7 +234,7 @@ export default function LocationCard({ candidate, index, selected, selectedRoute
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {hasRoute && (
-            <span className="text-xs text-blue-400">{selected ? '지도 표시 중' : '클릭해서 경로 보기'}</span>
+            <span className="hidden sm:inline text-xs text-blue-400">{selected ? '지도 표시 중' : '클릭해서 경로 보기'}</span>
           )}
           <button
             onClick={(e) => { e.stopPropagation(); onRemove(candidate.id) }}
@@ -247,7 +247,7 @@ export default function LocationCard({ candidate, index, selected, selectedRoute
 
       {/* Loading */}
       {candidate.loading && (
-        <div className="flex items-center gap-2 text-sm text-gray-400 px-4 pb-4">
+        <div className="flex items-center gap-2 text-sm text-gray-400 px-3 lg:px-4 pb-3 lg:pb-4">
           <div className="w-4 h-4 border-2 border-gray-200 border-t-blue-400 rounded-full animate-spin" />
           경로 계산 중...
         </div>
@@ -255,11 +255,11 @@ export default function LocationCard({ candidate, index, selected, selectedRoute
 
       {/* Error */}
       {!candidate.loading && candidate.error && (
-        <p className="text-xs text-red-400 px-4 pb-4">{candidate.error}</p>
+        <p className="text-xs text-red-400 px-3 lg:px-4 pb-3 lg:pb-4">{candidate.error}</p>
       )}
 
       {/* 월세 입력 (실질 비용용) */}
-      <div className="px-4 pt-2 pb-1 border-t border-gray-50 flex items-center gap-2">
+      <div className="px-3 lg:px-4 pt-2 pb-1 border-t border-gray-50 flex items-center gap-2">
         <span className="text-xs text-gray-400 shrink-0">🏠 월세</span>
         <input
           type="number"
@@ -278,7 +278,7 @@ export default function LocationCard({ candidate, index, selected, selectedRoute
       </div>
 
       {/* 메모 — 닫힌 상태에선 전체 표시 + URL은 클릭 가능한 링크 */}
-      <div className="px-4 pb-3">
+      <div className="px-3 lg:px-4 pb-3">
         <button
           onClick={() => {
             setMemoOpen((v) => !v)
@@ -309,7 +309,7 @@ export default function LocationCard({ candidate, index, selected, selectedRoute
 
       {/* 상세 경로 — 선택됐을 때만 */}
       {selected && hasRoute && (
-        <div className="px-4 pb-4 border-t border-gray-100 pt-3 space-y-2">
+        <div className="px-3 lg:px-4 pb-3 lg:pb-4 border-t border-gray-100 pt-3 space-y-2">
           {hasDest2 && (
             <p className="text-xs font-medium text-gray-500 flex items-center gap-1">
               <span style={{ color: '#ef4444' }}>★</span> 첫 번째 목적지 경로
