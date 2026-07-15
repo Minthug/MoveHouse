@@ -59,6 +59,9 @@ const FLOOR_SHAPE_OPTIONS: Array<{ value: FloorPlanShapeKind; label: string; cla
   { value: 'balcony', label: '베란다', className: 'border-emerald-300 bg-emerald-50 text-emerald-700' },
 ]
 
+const FLOOR_GRID = 2
+const FLOOR_SNAP_DISTANCE = 3
+
 const FLOOR_PRESET_RECTS: Record<FloorPlanTemplate, FloorPlanRect[]> = {
   studio: [
     { id: 'room-1', kind: 'room', label: '방', x: 8, y: 8, w: 84, h: 58 },
@@ -98,16 +101,45 @@ function makeRect(kind: FloorPlanShapeKind, index: number): FloorPlanRect {
   }
 }
 
+function snap(value: number): number {
+  return Math.round(value / FLOOR_GRID) * FLOOR_GRID
+}
+
 function clampRect(rect: FloorPlanRect): FloorPlanRect {
-  const w = Math.min(Math.max(rect.w, 8), 100)
-  const h = Math.min(Math.max(rect.h, 8), 100)
+  const w = Math.min(Math.max(snap(rect.w), 8), 100)
+  const h = Math.min(Math.max(snap(rect.h), 8), 100)
   return {
     ...rect,
     w,
     h,
-    x: Math.min(Math.max(rect.x, 0), 100 - w),
-    y: Math.min(Math.max(rect.y, 0), 100 - h),
+    x: Math.min(Math.max(snap(rect.x), 0), 100 - w),
+    y: Math.min(Math.max(snap(rect.y), 0), 100 - h),
   }
+}
+
+function snapNear(value: number, guides: number[]): number {
+  const guide = guides.find((g) => Math.abs(value - g) <= FLOOR_SNAP_DISTANCE)
+  return guide ?? value
+}
+
+function snapRectToGuides(rect: FloorPlanRect, rects: FloorPlanRect[]): FloorPlanRect {
+  const others = rects.filter((other) => other.id !== rect.id)
+  const xGuides = [0, ...others.flatMap((other) => [other.x, other.x + other.w])]
+  const yGuides = [0, ...others.flatMap((other) => [other.y, other.y + other.h])]
+  const rightGuides = [100, ...others.flatMap((other) => [other.x, other.x + other.w])]
+  const bottomGuides = [100, ...others.flatMap((other) => [other.y, other.y + other.h])]
+
+  const next = { ...rect }
+  next.x = snapNear(next.x, xGuides)
+  next.y = snapNear(next.y, yGuides)
+
+  const snappedRight = snapNear(next.x + next.w, rightGuides)
+  if (snappedRight !== next.x + next.w) next.w = snappedRight - next.x
+
+  const snappedBottom = snapNear(next.y + next.h, bottomGuides)
+  if (snappedBottom !== next.y + next.h) next.h = snappedBottom - next.y
+
+  return clampRect(next)
 }
 
 function rectsOverlap(a: FloorPlanRect, b: FloorPlanRect): boolean {
@@ -158,7 +190,7 @@ function BuildingFloorPlan({
   const updateRect = (id: string, patchRect: Partial<FloorPlanRect>) => {
     const target = rects.find((rect) => rect.id === id)
     if (!target) return
-    const nextRect = clampRect({ ...target, ...patchRect })
+    const nextRect = snapRectToGuides(clampRect({ ...target, ...patchRect }), rects)
     if (hasCollision(nextRect, rects)) return
     patch({ rects: rects.map((rect) => rect.id === id ? nextRect : rect) })
   }
@@ -325,6 +357,9 @@ function BuildingFloorPlan({
           </span>
         </button>
       </div>
+      <p className="mt-1.5 text-[10px] text-gray-400">
+        이동과 크기는 그리드와 가까운 도형 경계에 맞춰 정렬돼요.
+      </p>
 
       {selectedRect && (
         <div className="mt-3 rounded-lg border border-gray-200 bg-white p-2">
