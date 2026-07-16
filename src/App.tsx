@@ -75,7 +75,9 @@ function readLocal<T>(key: string, fallback: T): T {
 }
 
 function writeLocal(key: string, value: unknown) {
-  try { localStorage.setItem(key, JSON.stringify(value)) } catch {}
+  try { localStorage.setItem(key, JSON.stringify(value)) } catch {
+    // localStorage can be unavailable in embedded/private contexts.
+  }
 }
 
 function initThemeMode(): ThemeMode {
@@ -140,6 +142,7 @@ export default function App() {
 
   // 목적지 바뀌면 편의시설 초기화 + 캐시 무효화
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setNearbyPlaces([])
     setCustomPlaces([])
     setActivePlaceCategories(new Set())
@@ -174,7 +177,7 @@ export default function App() {
     })
     // URL 정리 (id 제거)
     window.history.replaceState(null, '', window.location.pathname)
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [])
 
   // localStorage 동기화 (보드 전체)
   useEffect(() => {
@@ -287,6 +290,15 @@ export default function App() {
     setCandidates((prev) => prev.map((c) => ({ ...c, routes2: undefined, loading2: false, error2: undefined })))
   }
 
+  // 보드 이름 자동 생성 (사용자가 이름 안 바꿨을 때만)
+  const isDefaultName = (n: string) => /^비교 \d+$/.test(n) || n === '공유된 비교'
+  function boardNameFromAddress(addr: string): string {
+    return addr.match(/([가-힣]+구)/)?.[1] ?? addr.split(' ')[0] ?? addr
+  }
+  function maybeAutoName(addr: string) {
+    if (activeBoard && isDefaultName(activeBoard.name)) patchActive({ name: boardNameFromAddress(addr) })
+  }
+
   const handleDistrictClick = useCallback(
     (name: string, lat: number, lng: number) => {
       if (!destination) {
@@ -385,15 +397,6 @@ export default function App() {
     patchActive({ destination: null, destination2: null, candidates: [] })
     setSelectedCandidateId(null)
     window.history.replaceState(null, '', window.location.pathname)
-  }
-
-  // 보드 이름 자동 생성 (사용자가 이름 안 바꿨을 때만)
-  const isDefaultName = (n: string) => /^비교 \d+$/.test(n) || n === '공유된 비교'
-  function boardNameFromAddress(addr: string): string {
-    return addr.match(/([가-힣]+구)/)?.[1] ?? addr.split(' ')[0] ?? addr
-  }
-  function maybeAutoName(addr: string) {
-    if (activeBoard && isDefaultName(activeBoard.name)) patchActive({ name: boardNameFromAddress(addr) })
   }
 
   // 보드 조작

@@ -117,5 +117,5 @@ export function useNaverMap({
     })
   }, [destination, candidates])
 
-  return { map: mapRef.current }
+  return { mapRef }
 }

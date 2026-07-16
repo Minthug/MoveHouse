@@ -332,6 +332,7 @@ export default function SeoulMap({ isDarkMode, mode, destination, destination2, 
 
   // 경로 데이터가 생기면 자동으로 visible 목록에 추가
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setRouteVisible((prev) => {
       const next = new Set(prev)
       candidates.forEach((c) => { if (c.routes.transit?.steps?.length) next.add(c.id) })
@@ -356,6 +357,7 @@ export default function SeoulMap({ isDarkMode, mode, destination, destination2, 
         const route2 = (selectedRouteType === 'bus' ? selected.routes2?.bus : null) ?? selected.routes2?.transit
         route2?.steps?.forEach((step) => step.coords?.forEach(([lat, lng]) => points.push([LNG_TO_SVG(lng), LAT_TO_SVG(lat)])))
       }
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setViewMode('gu')
       setSelGu(null)
       setSelDong(null)

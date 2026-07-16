@@ -42,7 +42,6 @@ interface UseLeafletMapProps {
 
 export function useLeafletMap({
   mapContainerRef,
-  mode,
   destination,
   candidates,
   selectedCandidateId,
@@ -122,6 +121,7 @@ export function useLeafletMap({
     fetchSeoulGeoJSON()
       .then((geo) => {
         if (!active || !mapRef.current) return
+        // eslint-disable-next-line react-hooks/immutability
         buildGuLayer(map, geo)
       })
       .catch(console.error)
@@ -221,10 +221,11 @@ export function useLeafletMap({
     fetchSeoulDongGeoJSON()
       .then((geo) => {
         if (!mapRef.current || zoomedGuRef.current !== zoomedGu) return
+        // eslint-disable-next-line react-hooks/immutability
         buildDongLayer(mapRef.current, geo, zoomedGu, guCode)
       })
       .catch(console.error)
-  }, [zoomedGu]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [zoomedGu])
 
   function buildDongLayer(map: L.Map, geo: FeatureCollection, guName: string, guCode: string) {
     const filtered: FeatureCollection = {
@@ -488,7 +489,7 @@ export function useLeafletMap({
     }
     updateZoomClass()
     map.on('zoomend', updateZoomClass)
-  }, [showSubway]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [showSubway])
 
   return {
     zoomedGu,
