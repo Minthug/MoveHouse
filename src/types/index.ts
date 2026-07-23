@@ -63,6 +63,7 @@ export interface CandidateLocation extends Location {
   memo?: string
   rent?: number // 월세 (원). 실질 월 비용 = 월세 + 월 교통비
   floorPlan?: FloorPlan
+  routeVersion?: number
 }
 
 // 비교 보드: 목적지(+보조) + 후보지 세트 하나 (노션 클립보드처럼 여러 개 전환)

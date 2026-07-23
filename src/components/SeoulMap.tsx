@@ -4,6 +4,7 @@ import { PLACE_CATEGORIES } from '../services/places'
 import type { NearbyPlace } from '../services/places'
 import { SUBWAY_LINES } from '../data/subway-lines'
 import { METRO } from '../data/metro-data'
+import { SUWON_DISTRICTS } from '../data/suwon-data'
 
 // Least-squares calibration: SVG centroid ↔ WGS84 (25구 기준)
 const SVG_TO_LNG = (cx: number) => cx * 0.00040091 + 126.774831
@@ -37,8 +38,10 @@ interface DongSeoulData {
 }
 
 const CANDIDATE_COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ec4899']
-const FULL_VIEWBOX: [number, number, number, number] = [-468, -323, 1999, 1599]
+const FULL_VIEWBOX: [number, number, number, number] = [-656, -323, 2374, 1899]
 const MAP_ASPECT = 1000 / 800
+const SELECTABLE_METRO_PREFIXES = ['suwon-']
+const METRO_AREAS = [...METRO, ...SUWON_DISTRICTS]
 
 // 경로선 외곽 캐싱용 어두운 색 (밝은 지도 위 대비 확보)
 function darken(hex: string, f = 0.55): string {
@@ -56,6 +59,10 @@ const GU_NAMES = [
 
 function extractGuName(address: string): string | null {
   return GU_NAMES.find((g) => address.includes(g)) ?? null
+}
+
+function isSelectableMetro(code: string): boolean {
+  return SELECTABLE_METRO_PREFIXES.some((prefix) => code.startsWith(prefix))
 }
 
 function aspectFit(bbox: [number, number, number, number]): [number, number, number, number] {
@@ -193,7 +200,7 @@ export default function SeoulMap({ isDarkMode, mode, destination, destination2, 
     else applyViewBox(next)
   }
 
-  function touchDistance(touches: TouchList) {
+  function touchDistance(touches: React.TouchList) {
     const a = touches[0]
     const b = touches[1]
     return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY)
@@ -573,6 +580,21 @@ export default function SeoulMap({ isDarkMode, mode, destination, destination2, 
   const dongFill = (d: DongData) => (d.code === selDong?.code ? mapTheme.dongSelected : mapTheme.neutralDong)
   const dongStroke = (d: DongData) => (d.code === selDong?.code ? mapTheme.dongSelectedStroke : mapTheme.dongStroke)
   const dongStrokeW = (d: DongData) => (d.code === selDong?.code ? 1.8 : 1.1)
+  const selectableMetroAreas = METRO_AREAS.filter((m) => isSelectableMetro(m.code))
+  const selectableMetroName = (m: typeof METRO_AREAS[number]) => `${m.label} ${m.name.replace(m.label, '')}`
+  const selectableMetroFill = (m: typeof METRO_AREAS[number]) => {
+    const name = selectableMetroName(m)
+    if (destination?.name === name) return '#ef4444'
+    const ci = candidates.findIndex((c) => c.name === name)
+    if (ci >= 0) return CANDIDATE_COLORS[ci % CANDIDATE_COLORS.length]
+    return mapTheme.metroFill
+  }
+  const selectableMetroOpacity = (m: typeof METRO_AREAS[number]) => {
+    const name = selectableMetroName(m)
+    if (destination?.name === name || candidates.some((c) => c.name === name)) return 0.86
+    if (hoveredGu === m.code) return 0.92
+    return 0.85
+  }
 
   // viewBox 너비 기준 스케일 — 구 뷰(1000)에서 1, 동 뷰 줌인 시 비례 축소
   const mapScale = viewBox[2] / 1000
@@ -598,25 +620,31 @@ export default function SeoulMap({ isDarkMode, mode, destination, destination2, 
       >
         {/* 수도권 배경 (인천·경기) — 컨텍스트용, 비클릭 */}
         {isGu &&
-          METRO.map((m) => (
+          METRO_AREAS.map((m) => (
             <path
               key={m.code}
               d={m.d}
-              fill={mapTheme.metroFill}
+              fill={isSelectableMetro(m.code) ? selectableMetroFill(m) : mapTheme.metroFill}
               stroke={mapTheme.metroStroke}
               strokeWidth={1.4 * mapScale}
               strokeLinejoin="round"
-              opacity={0.85}
-              style={{ pointerEvents: 'none' }}
+              opacity={isSelectableMetro(m.code) ? selectableMetroOpacity(m) : 0.85}
+              style={{ cursor: isSelectableMetro(m.code) ? 'pointer' : undefined, pointerEvents: isSelectableMetro(m.code) ? 'auto' : 'none' }}
+              onClick={() => {
+                if (!isSelectableMetro(m.code) || ignoreTapAfterGesture()) return
+                onDistrictClick(selectableMetroName(m), SVG_TO_LAT(m.cy), SVG_TO_LNG(m.cx))
+              }}
+              onMouseEnter={() => { if (isSelectableMetro(m.code)) setHoveredGu(m.code) }}
+              onMouseLeave={() => { if (isSelectableMetro(m.code)) setHoveredGu(null) }}
             />
           ))}
         {/* 수도권 지역명 라벨 (시 단위, 중복 제거) */}
         {isGu &&
           Object.values(
-            METRO.reduce((acc, m) => {
+            METRO_AREAS.reduce((acc, m) => {
               (acc[m.label] = acc[m.label] || []).push(m)
               return acc
-            }, {} as Record<string, typeof METRO>),
+            }, {} as Record<string, typeof METRO_AREAS>),
           ).map((group) => {
             const cx = group.reduce((s, g) => s + g.cx, 0) / group.length
             const cy = group.reduce((s, g) => s + g.cy, 0) / group.length
@@ -866,8 +894,8 @@ export default function SeoulMap({ isDarkMode, mode, destination, destination2, 
         {nearbyPlaces.map((place) => {
           const x = LNG_TO_SVG(place.lng)
           const y = LAT_TO_SVG(place.lat)
-          // 수도권(통근권) 좌표 범위 밖만 컬링 — 예전 서울 전용 범위(1050×850)는 분당·하남 등 근교 마커를 잘라냈음
-          if (x < -700 || x > 1550 || y < -350 || y > 1300) return null
+          // 수도권(통근권) 좌표 범위 밖만 컬링.
+          if (x < -700 || x > 1550 || y < -350 || y > 1550) return null
           const cfg = place.category === 'CUSTOM'
             ? { color: '#6b7280', emoji: '📍' }
             : PLACE_CATEGORIES[place.category as keyof typeof PLACE_CATEGORIES]
@@ -897,26 +925,54 @@ export default function SeoulMap({ isDarkMode, mode, destination, destination2, 
         {/* Labels */}
         <g style={{ pointerEvents: 'none' }}>
           {isGu
-            ? guData.districts.map((d) => {
-                const hasPin = pins.some((p) => Math.abs(p.cx - d.cx) < 5)
-                if (hasPin) return null
-                const isSelected = d.name === destGu || candGus.includes(d.name)
-                return (
-                  <text
-                    key={d.code}
-                    x={d.cx}
-                    y={d.cy}
-                    textAnchor="middle"
-                    dominantBaseline="middle"
-                    fontSize={10}
-                    fontWeight={600}
-                    fill={isSelected ? '#fff' : mapTheme.mapLabel}
-                    letterSpacing="-0.3"
-                  >
-                    {d.name}
-                  </text>
-                )
-              })
+            ? (
+                <>
+                  {guData.districts.map((d) => {
+                    const hasPin = pins.some((p) => Math.abs(p.cx - d.cx) < 5)
+                    if (hasPin) return null
+                    const isSelected = d.name === destGu || candGus.includes(d.name)
+                    return (
+                      <text
+                        key={d.code}
+                        x={d.cx}
+                        y={d.cy}
+                        textAnchor="middle"
+                        dominantBaseline="middle"
+                        fontSize={10}
+                        fontWeight={600}
+                        fill={isSelected ? '#fff' : mapTheme.mapLabel}
+                        letterSpacing="-0.3"
+                      >
+                        {d.name}
+                      </text>
+                    )
+                  })}
+                  {selectableMetroAreas.map((m) => {
+                    const name = selectableMetroName(m)
+                    const hasPin = pins.some((p) => Math.hypot(p.cx - m.cx, p.cy - m.cy) < 16)
+                    if (hasPin) return null
+                    const isSelected = destination?.name === name || candidates.some((c) => c.name === name)
+                    return (
+                      <text
+                        key={`${m.code}-label`}
+                        x={m.cx}
+                        y={m.cy}
+                        textAnchor="middle"
+                        dominantBaseline="middle"
+                        fontSize={10 * mapScale}
+                        fontWeight={700}
+                        fill={isSelected ? '#fff' : mapTheme.mapLabel}
+                        stroke={isSelected ? 'none' : mapTheme.routeHalo}
+                        strokeWidth={isSelected ? 0 : 2 * mapScale}
+                        paintOrder="stroke"
+                        letterSpacing="-0.3"
+                      >
+                        {m.name.replace(m.label, '')}
+                      </text>
+                    )
+                  })}
+                </>
+              )
             : dongs.map((d) => {
                 const isSel = d.code === selDong?.code
                 return (
@@ -979,7 +1035,7 @@ export default function SeoulMap({ isDarkMode, mode, destination, destination2, 
               className="flex items-center gap-1.5 bg-white text-gray-700 text-xs font-semibold px-3 py-1.5 rounded-full shadow-md hover:bg-gray-50 transition-colors pointer-events-auto"
               onClick={goBack}
             >
-              ← 서울 전체
+              ← 전체 지도
             </button>
             <span className="text-sm font-bold text-gray-800 bg-white/95 px-3 py-1.5 rounded-full shadow-sm">
               {selGu?.name}
@@ -987,7 +1043,7 @@ export default function SeoulMap({ isDarkMode, mode, destination, destination2, 
           </>
         ) : (
           <span className="text-xs text-gray-500 bg-white/80 backdrop-blur-sm px-3 py-1.5 rounded-full shadow-sm">
-            서울특별시 자치구
+            서울·수원 행정 지도
           </span>
         )}
       </div>
@@ -1108,8 +1164,8 @@ export default function SeoulMap({ isDarkMode, mode, destination, destination2, 
               }`}
             >
               {mode === 'set-destination'
-                ? '구를 탭해 동 선택 → 목적지 설정'
-                : '구를 탭해 동 선택 → 후보지 추가'}
+                ? '서울 구는 동 선택, 수원 구는 바로 목적지 설정'
+                : '서울 구는 동 선택, 수원 구는 바로 후보지 추가'}
             </div>
           </div>
         ) : (

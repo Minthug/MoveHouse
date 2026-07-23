@@ -15,6 +15,7 @@ import type { ShareData } from './lib/share'
 
 const LABELS = ['A', 'B', 'C', 'D', 'E']
 const THEME_KEY = 'commute-theme-mode'
+const ROUTE_DATA_VERSION = 2
 
 function makeId() {
   return Math.random().toString(36).slice(2, 9)
@@ -29,8 +30,22 @@ function boardFromShared(shared: ShareData): Board {
     destination2: shared.dest2 ? { id: makeId(), ...shared.dest2 } : null,
     candidates: shared.cands.map((c, i) => ({
       id: makeId(), lat: c.lat, lng: c.lng, name: c.name, rent: c.rent, memo: c.memo,
-      label: LABELS[i] ?? String(i + 1), routes: {}, loading: true,
+      label: LABELS[i] ?? String(i + 1), routes: {}, loading: true, routeVersion: ROUTE_DATA_VERSION,
     })),
+  }
+}
+
+function normalizeCandidateRoutes(c: CandidateLocation, hasDest2: boolean): CandidateLocation {
+  const staleRoute = c.routeVersion !== ROUTE_DATA_VERSION
+  return {
+    ...c,
+    routes: staleRoute ? {} : c.routes,
+    routes2: staleRoute ? undefined : c.routes2,
+    error: staleRoute ? undefined : c.error,
+    error2: staleRoute ? undefined : c.error2,
+    loading: staleRoute || (!c.routes.transit && !c.error),
+    loading2: hasDest2 ? staleRoute || (!c.routes2?.transit && !c.error2) : false,
+    routeVersion: staleRoute ? ROUTE_DATA_VERSION : c.routeVersion,
   }
 }
 
@@ -40,7 +55,7 @@ function initBoards(): Board[] {
   if (saved && saved.length) {
     const boards = saved.map((b) => ({
       ...b,
-      candidates: b.candidates.map((c) => ({ ...c, loading: !c.routes.transit && !c.error })),
+      candidates: b.candidates.map((c) => normalizeCandidateRoutes(c, !!b.destination2)),
     }))
     const shared = decodeShare()
     return shared ? [boardFromShared(shared), ...boards.filter((b) => b.destination || b.candidates.length)] : boards
@@ -56,7 +71,7 @@ function initBoards(): Board[] {
       name: '비교 1',
       destination: oldDest,
       destination2: oldDest2,
-      candidates: oldCands.map((c) => ({ ...c, loading: !c.routes.transit && !c.error })),
+      candidates: oldCands.map((c) => normalizeCandidateRoutes(c, !!oldDest2)),
     }]
     return shared ? [boardFromShared(shared), ...boards] : boards
   }
@@ -196,7 +211,7 @@ export default function App() {
     for (const c of noTransit) {
       fetchRoutes({ lat: c.lat, lng: c.lng }, destination)
         .then((routes) => setCandidates((prev) =>
-          prev.map((p) => p.id === c.id ? { ...p, loading: false, routes } : p),
+          prev.map((p) => p.id === c.id ? { ...p, loading: false, routes, routeVersion: ROUTE_DATA_VERSION } : p),
         ))
         .catch(() => setCandidates((prev) =>
           prev.map((p) => p.id === c.id ? { ...p, loading: false, error: '경로를 가져오지 못했어요' } : p),
@@ -208,7 +223,7 @@ export default function App() {
     for (const c of noBus) {
       fetchRoutes({ lat: c.lat, lng: c.lng }, destination)
         .then((routes) => setCandidates((prev) =>
-          prev.map((p) => p.id === c.id ? { ...p, routes: { ...p.routes, bus: routes.bus } } : p),
+          prev.map((p) => p.id === c.id ? { ...p, routes: { ...p.routes, bus: routes.bus }, routeVersion: ROUTE_DATA_VERSION } : p),
         ))
         .catch(() => {})
     }
@@ -219,7 +234,7 @@ export default function App() {
       for (const c of noRoutes2) {
         fetchRoutes({ lat: c.lat, lng: c.lng }, destination2)
           .then((routes2) => setCandidates((prev) =>
-            prev.map((p) => p.id === c.id ? { ...p, loading2: false, routes2 } : p),
+            prev.map((p) => p.id === c.id ? { ...p, loading2: false, routes2, routeVersion: ROUTE_DATA_VERSION } : p),
           ))
           .catch(() => setCandidates((prev) =>
             prev.map((p) => p.id === c.id ? { ...p, loading2: false, error2: '경로를 가져오지 못했어요' } : p),
@@ -237,12 +252,12 @@ export default function App() {
     const label = LABELS[candidates.length]
 
     const hasDest2 = !!destination2
-    setCandidates((prev) => [...prev, { id, lat, lng, name, label, routes: {}, loading: true, loading2: hasDest2 }])
+    setCandidates((prev) => [...prev, { id, lat, lng, name, label, routes: {}, loading: true, loading2: hasDest2, routeVersion: ROUTE_DATA_VERSION }])
 
     fetchRoutes({ lat, lng }, dest)
       .then((routes) => {
         setCandidates((prev) =>
-          prev.map((c) => (c.id === id ? { ...c, loading: false, routes } : c)),
+          prev.map((c) => (c.id === id ? { ...c, loading: false, routes, routeVersion: ROUTE_DATA_VERSION } : c)),
         )
       })
       .catch(() => {
@@ -257,7 +272,7 @@ export default function App() {
       fetchRoutes({ lat, lng }, destination2)
         .then((routes2) => {
           setCandidates((prev) =>
-            prev.map((c) => (c.id === id ? { ...c, loading2: false, routes2 } : c)),
+            prev.map((c) => (c.id === id ? { ...c, loading2: false, routes2, routeVersion: ROUTE_DATA_VERSION } : c)),
           )
         })
         .catch(() => {
@@ -277,7 +292,7 @@ export default function App() {
     candidates.forEach((c) => {
       fetchRoutes({ lat: c.lat, lng: c.lng }, dest2)
         .then((routes2) => setCandidates((prev) =>
-          prev.map((p) => p.id === c.id ? { ...p, loading2: false, routes2 } : p),
+          prev.map((p) => p.id === c.id ? { ...p, loading2: false, routes2, routeVersion: ROUTE_DATA_VERSION } : p),
         ))
         .catch(() => setCandidates((prev) =>
           prev.map((p) => p.id === c.id ? { ...p, loading2: false, error2: '경로를 가져오지 못했어요' } : p),
@@ -530,6 +545,11 @@ export default function App() {
         setSelectedCandidateId(isSameIdAndType ? null : id)
         if (!isSameIdAndType) setSelectedRouteType(routeType)
         if (!isSameIdAndType) setMobileBoardTab('map')
+      }}
+      onSelectCandidateInAnalysis={(id, routeType) => {
+        const isSameIdAndType = selectedCandidateId === id && selectedRouteType === routeType
+        setSelectedCandidateId(isSameIdAndType ? null : id)
+        if (!isSameIdAndType) setSelectedRouteType(routeType)
       }}
       onDestinationSelect={handleDestinationSelect}
       onDestination2Select={handleDestination2Select}

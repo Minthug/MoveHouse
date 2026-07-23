@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react'
 import Linkify from './Linkify'
 import { calcMonthlyFare } from '../services/directions'
-import type { CandidateLocation, RouteResult, RouteStep } from '../types'
+import type { CandidateLocation, Destination, RouteResult, RouteStep } from '../types'
 
 const CANDIDATE_COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ec4899']
 
@@ -34,6 +34,46 @@ function formatDuration(minutes: number): string {
 
 function formatFare(fare: number): string {
   return fare.toLocaleString('ko-KR') + '원'
+}
+
+function naverTransitUrl(origin: CandidateLocation, destination: Destination): string {
+  const params = new URLSearchParams({
+    slng: String(origin.lng),
+    slat: String(origin.lat),
+    stext: origin.name,
+    elng: String(destination.lng),
+    elat: String(destination.lat),
+    etext: destination.name,
+    menu: 'route',
+    pathType: '1',
+  })
+  return `https://map.naver.com/index.nhn?${params}`
+}
+
+function NaverRouteLink({
+  candidate,
+  destination,
+  compact = false,
+}: {
+  candidate: CandidateLocation
+  destination?: Destination | null
+  compact?: boolean
+}) {
+  if (!destination) return null
+  return (
+    <a
+      href={naverTransitUrl(candidate, destination)}
+      target="_blank"
+      rel="noreferrer"
+      onClick={(e) => e.stopPropagation()}
+      className={`inline-flex items-center justify-center rounded-full border border-green-100 bg-green-50 font-semibold text-green-700 hover:bg-green-100 ${
+        compact ? 'px-2 py-0.5 text-[11px]' : 'px-3 py-1.5 text-xs'
+      }`}
+      title="네이버 지도 대중교통 길찾기로 확인"
+    >
+      네이버 확인
+    </a>
+  )
 }
 
 function routeMode(route?: RouteResult) {
@@ -141,13 +181,15 @@ interface Props {
   selected: boolean
   selectedRouteType: 'transit' | 'bus'
   hasDest2?: boolean
+  destination?: Destination | null
+  destination2?: Destination | null
   onSelect: (id: string, routeType: 'transit' | 'bus') => void
   onRemove: (id: string) => void
   onMemoChange: (id: string, memo: string) => void
   onRentChange: (id: string, rent: number | undefined) => void
 }
 
-export default function LocationCard({ candidate, index, selected, selectedRouteType, hasDest2, onSelect, onRemove, onMemoChange, onRentChange }: Props) {
+export default function LocationCard({ candidate, index, selected, selectedRouteType, hasDest2, destination, destination2, onSelect, onRemove, onMemoChange, onRentChange }: Props) {
   const color = CANDIDATE_COLORS[index % CANDIDATE_COLORS.length]
   const [memoOpen, setMemoOpen] = useState(false)
   const [memoValue, setMemoValue] = useState(candidate.memo ?? '')
@@ -189,10 +231,13 @@ export default function LocationCard({ candidate, index, selected, selectedRoute
           </p>
           {transit && !candidate.loading && !hasDest2 && (
             <div className="mt-0.5 space-y-0.5">
-              <p className="text-xs text-gray-500">
-                {transitMode.icon} {formatDuration(transit.duration)} · {formatFare(transit.fare)}
-                {monthlyFare && transit === activeRoute && <span className="text-gray-400"> · 월 {formatFare(monthlyFare)}</span>}
-              </p>
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                <p className="text-xs text-gray-500">
+                  {transitMode.icon} {formatDuration(transit.duration)} · {formatFare(transit.fare)}
+                  {monthlyFare && transit === activeRoute && <span className="text-gray-400"> · 월 {formatFare(monthlyFare)}</span>}
+                </p>
+                <NaverRouteLink candidate={candidate} destination={destination} compact />
+              </div>
               {hasBus && (
                 <p className="text-xs text-green-600">
                   🚌 버스 우선 {formatDuration(bus!.duration)} · {formatFare(bus!.fare)}
@@ -205,6 +250,7 @@ export default function LocationCard({ candidate, index, selected, selectedRoute
               <p className="text-xs text-gray-600 flex items-center gap-1">
                 <span style={{ color: '#ef4444' }}>★</span>
                 {transitMode.icon} {formatDuration(transit.duration)} · {formatFare(transit.fare)}
+                <NaverRouteLink candidate={candidate} destination={destination} compact />
               </p>
               {candidate.loading2 ? (
                 <p className="text-xs text-gray-400 flex items-center gap-1">
@@ -214,6 +260,7 @@ export default function LocationCard({ candidate, index, selected, selectedRoute
                 <p className="text-xs text-gray-600 flex items-center gap-1">
                   <span style={{ color: '#0d9488' }}>★</span>
                   {formatDuration(transit2.duration)} · {formatFare(transit2.fare)}
+                  <NaverRouteLink candidate={candidate} destination={destination2} compact />
                 </p>
               ) : candidate.error2 ? (
                 <p className="text-xs text-red-400 flex items-center gap-1">
@@ -323,6 +370,7 @@ export default function LocationCard({ candidate, index, selected, selectedRoute
             active={selectedRouteType === 'transit'}
             onClick={() => onSelect(candidate.id, 'transit')}
           />
+          <NaverRouteLink candidate={candidate} destination={destination} />
           {hasBus && (
             <RouteDetailCard
               icon="🚌"
@@ -346,6 +394,7 @@ export default function LocationCard({ candidate, index, selected, selectedRoute
               <p className="text-xs text-gray-500">
                 {transit2Mode.icon} {formatDuration(transit2.duration)} · {formatFare(transit2.fare)}
               </p>
+              <NaverRouteLink candidate={candidate} destination={destination2} />
               {transit2.steps && <RouteSteps steps={transit2.steps} />}
             </div>
           )}

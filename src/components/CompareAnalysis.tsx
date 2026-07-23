@@ -573,6 +573,7 @@ export default function CompareAnalysis({ candidates, hasDest2, selectedCandidat
             const bs = badges(c)
 
             const isSelected = selectedCandidateId === c.id
+            const showFloorPlan = isSelected || (!selectedCandidateId && i === 0)
 
             return (
               <div
@@ -689,7 +690,7 @@ export default function CompareAnalysis({ candidates, hasDest2, selectedCandidat
                     </div>
                   )}
 
-                  {isSelected && (
+                  {showFloorPlan && (
                     <BuildingFloorPlan
                       candidate={c}
                       onChange={onFloorPlanChange}

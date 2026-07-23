@@ -70,6 +70,7 @@ interface Props {
   selectedCandidateId: string | null
   selectedRouteType: 'transit' | 'bus'
   onSelectCandidate: (id: string, routeType: 'transit' | 'bus') => void
+  onSelectCandidateInAnalysis?: (id: string, routeType: 'transit' | 'bus') => void
   onDestinationSelect: (lat: number, lng: number, address: string) => void
   onDestination2Select: (lat: number, lng: number, address: string) => void
   onRemoveDestination2: () => void
@@ -100,6 +101,7 @@ export default function ComparePanel({
   candidates,
   selectedCandidateId,
   onSelectCandidate,
+  onSelectCandidateInAnalysis,
   onDestinationSelect,
   onDestination2Select,
   onRemoveDestination2,
@@ -130,7 +132,7 @@ export default function ComparePanel({
         candidates={candidates}
         hasDest2={!!destination2}
         selectedCandidateId={selectedCandidateId}
-        onSelectCandidate={(id) => onSelectCandidate(id, 'transit')}
+        onSelectCandidate={(id) => (onSelectCandidateInAnalysis ?? onSelectCandidate)(id, 'transit')}
         onFloorPlanChange={onFloorPlanChange}
         onBack={() => setShowAnalysis(false)}
       />
@@ -334,6 +336,8 @@ export default function ComparePanel({
             selected={selectedCandidateId === c.id}
             selectedRouteType={selectedRouteType}
             hasDest2={!!destination2}
+            destination={destination}
+            destination2={destination2}
             onSelect={onSelectCandidate}
             onRemove={onRemoveCandidate}
             onMemoChange={onMemoChange}

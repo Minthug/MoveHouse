@@ -108,14 +108,16 @@ async function fetchTransitRoute(
       SY: String(origin.lat),
       EX: String(destination.lng),
       EY: String(destination.lat),
-      OPT: '1',
+      OPT: '0',
       SearchType: '0',
       SearchPathType: searchPathType,
     })
     const res = await fetch(apiUrl(`/api/transit?${params}`))
     if (!res.ok) return null
     const data: OdsayResponse = await res.json()
-    const best = data.result?.path?.[0]
+    const best = data.result?.path
+      ?.filter((path) => Number.isFinite(path.info.totalTime))
+      .sort((a, b) => a.info.totalTime - b.info.totalTime)[0]
     if (!best) return null
     return {
       duration: best.info.totalTime,
